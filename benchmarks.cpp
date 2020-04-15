@@ -1,7 +1,3 @@
-//
-// Created by kankava on 2020-04-13.
-//
-
 #include "benchmarks.h"
 #include "benchmark.h"
 #include "lockfree-mcas/Deque.h"
@@ -12,6 +8,71 @@
 static const int DATA_VALUE_RANGE_MIN = 0;
 static const int DATA_VALUE_RANGE_MAX = 256;
 static const int DATA_PREFILL = 512;
+
+void benchmark_mwobject() {
+  struct {
+    int a;
+    int b;
+    int c;
+    int d;
+  } counters{};
+
+  std::mutex cas_lock = {};
+
+  /* set up random number generator */
+  std::random_device rd;
+  std::mt19937 engine(rd());
+  std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN,
+                                                  DATA_VALUE_RANGE_MAX);
+
+  {
+    benchmark(6, u8"Lock-Free MW Object Update", [&counters, &cas_lock](int random) {
+      auto choice =
+          (random % (2 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
+      if (choice == 0) {
+        while (true) {
+          int old_a = counters.a;
+          int old_b = counters.b;
+          int old_c = counters.c;
+          int old_d = counters.d;
+
+          int new_a = old_a + 1;
+          int new_b = old_b + 1;
+          int new_c = old_c + 1;
+          int new_d = old_d + 1;
+
+          {
+            std::lock_guard<std::mutex> lock(cas_lock);
+            if (CAS(&counters.a, &counters.b, &counters.c, &counters.d,
+                    old_a, old_b, old_c, old_d,
+                    new_a, new_b, new_c, new_d))
+              break;
+          }
+        }
+      } else {
+        while (true) {
+          int old_a = counters.a;
+          int old_b = counters.b;
+          int old_c = counters.c;
+          int old_d = counters.d;
+
+          int new_a = old_a - 1;
+          int new_b = old_b - 1;
+          int new_c = old_c - 1;
+          int new_d = old_d - 1;
+
+          {
+            std::lock_guard<std::mutex> lock(cas_lock);
+            if (CAS(&counters.a, &counters.b, &counters.c, &counters.d,
+                    old_a, old_b, old_c, old_d,
+                    new_a, new_b, new_c, new_d))
+              break;
+          }
+        }
+      }
+    });
+  }
+}
 
 void benchmark_deque() {
   /* set up random number generator */
@@ -118,11 +179,11 @@ template<typename List>
 void update(List& l, int random) {
   /* update operations: 50% insert, 50% remove */
   auto choice = (random % (2*DATA_VALUE_RANGE_MAX))/DATA_VALUE_RANGE_MAX;
-  // if(choice == 0) {
+  if(choice == 0) {
     l.insert(random % DATA_VALUE_RANGE_MAX);
-  // } else {
-  //   l.remove(random % DATA_VALUE_RANGE_MAX);
-  // }
+  } else {
+    l.remove(random % DATA_VALUE_RANGE_MAX);
+  }
 }
 
 template<typename List>
@@ -144,36 +205,36 @@ void benchmark_sorted_list() {
   std::mt19937 engine(rd());
   std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN, DATA_VALUE_RANGE_MAX);
 
-  /* example use of benchmarking */
   {
     lockfree_mcas::SortedList<int> l1;
     /* prefill list with 1024 elements */
     for(int i = 0; i < DATA_PREFILL; i++) {
       l1.insert(uniform_dist(engine));
     }
-    // benchmark(6, u8"lock-free read", [&l1](int random){
-    //   read(l1, random);
-    // });
+    benchmark(6, u8"lock-free read", [&l1](int random){
+      read(l1, random);
+    });
     benchmark(6, u8"lock-free update", [&l1](int random){
       update(l1, random);
     });
   }
-  // {
-  //   /* start with fresh list: update test left list in random size */
-  //   lockfree_mcas::SortedList<int> l1;
-  //   /* prefill list with 1024 elements */
-  //   for(int i = 0; i < DATA_PREFILL; i++) {
-  //     l1.insert(uniform_dist(engine));
-  //   }
-  //   benchmark(6, u8"lock-free mixed", [&l1](int random){
-  //     mixed(l1, random);
-  //   });
-  // }
+
+  {
+    lockfree_mcas::SortedList<int> l1;
+    /* prefill list with 1024 elements */
+    for(int i = 0; i < DATA_PREFILL; i++) {
+      l1.insert(uniform_dist(engine));
+    }
+    benchmark(6, u8"lock-free mixed", [&l1](int random){
+      mixed(l1, random);
+    });
+  }
 }
 
 void run_all() {
-  // benchmark_deque();
-  // benchmark_stack();
-  // benchmark_queue();
+  benchmark_mwobject();
+  benchmark_deque();
+  benchmark_stack();
+  benchmark_queue();
   benchmark_sorted_list();
 }
