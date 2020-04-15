@@ -1,10 +1,6 @@
-//
-// Lock-free Doubly-Linked List implementation using the algorithm
-// described A Pragmatic Implementation of Non-blocking Linked-Lists paper
-//
-
 #pragma once
 
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include "../mcas/mcas.h"
@@ -15,7 +11,6 @@ template <typename T>
 class SortedList {
  private:
   struct Node {
-    // int marked;
     std::shared_ptr<T> data;
     std::shared_ptr<Node> next;
     std::shared_ptr<Node> prev;
@@ -24,107 +19,96 @@ class SortedList {
 
   std::shared_ptr<Node> head;
   std::shared_ptr<Node> tail;
+  std::shared_ptr<Node> dummy;
   std::mutex cas_lock = {};
 
  public:
   SortedList() {
     head = std::make_shared<Node>();
     tail = std::make_shared<Node>();
+    dummy = std::make_shared<Node>();
     head->next = tail;
     tail->prev = head;
   }
 
   void insert(T const& data) {
     std::shared_ptr<Node> const new_node = std::make_shared<Node>();
-    new_node->next = nullptr;
-    new_node->prev = nullptr;
     new_node->data = std::make_shared<T>(data);
+    new_node->next = dummy;
+    new_node->prev = dummy;
 
     while (true) {
       auto parent = head;
-      auto child = head->next;
+      auto curr = head->next;
 
-      // search position (buggy???)
-      while (child != nullptr && *child->data < data) {
-        parent = child;
-        child = child->next;
+      while (curr != nullptr && curr->data != nullptr && *curr->data < data) {
+        parent = curr;
+        curr = curr->next;
       }
 
-      if (child == nullptr) {
-        // parent->next = new_node;
-        // new_node->prev = parent;
-        auto pnext = parent->next;
-        auto nprev = new_node->prev;
+      {
+        std::lock_guard<std::mutex> lock(cas_lock);
+        if (CAS4(&parent->next, &curr->prev, &new_node->next, &new_node->prev,
+                  curr, parent, dummy, dummy,
+                  new_node, new_node, curr, parent))
+          return;
+      }
+    }
+  }
+
+  void remove(T const& data) {
+    while (true)
+      while (true) {
+        std::shared_ptr<Node> curr = head->next;
+
+        while (curr != tail && curr->data != nullptr && *curr->data < data) {
+          curr = curr->next;
+        }
+
+        if (curr == tail) return;
+        if (curr->data == nullptr) break;
+        if (*curr->data != data) return;
+
+        auto child = curr->next;
+
+        std::shared_ptr<Node> c_n_prev = curr->next->prev;
+        std::shared_ptr<Node> c_p_next = curr->prev->next;
+
         {
           std::lock_guard<std::mutex> lock(cas_lock);
-          if (DCAS(&parent->next, &new_node->prev,
-                   pnext, nprev,
-                   new_node, parent))
+          if (DCAS(&curr->next->prev, &curr->prev->next,
+                    c_n_prev, c_p_next,
+                    curr->prev, curr->next))
             return;
         }
       }
-
-      // parent->next = new_node;
-      // child->prev = new_node;
-      // new_node->prev = parent;
-      // new_node->next = child;
-
-      auto pnext = parent->next;
-      auto cprev = child->prev;
-      auto nprev = new_node->prev;
-      auto nnext = new_node->next;
-      {
-        std::lock_guard<std::mutex> lock(cas_lock);
-        if (CAS4(&parent->next, &child->prev, &new_node->prev, &new_node->next,
-              pnext, cprev, nprev, nnext,
-              new_node, new_node, parent, child))
-          return;
-      }
-    }
-  }
-
-  void remove(T v) {
-    while (true) {
-      std::shared_ptr<Node> parent = head;
-      std::shared_ptr<Node> current = head->next;
-
-      // search node (buggy???)
-      while (current != nullptr && *current->data < v) {
-        parent = current;
-        current = current->next;
-      }
-
-      if (current == nullptr || *current->data != v) return;
-
-      auto child = current->next;
-
-      if (child == nullptr) {
-        auto pnext = parent->next;
-        {
-          std::lock_guard<std::mutex> lock(cas_lock);
-          if (CAS(&parent->next, pnext, child)) return;
-        }
-      } else {
-        auto pnext = parent->next;
-        auto gcprev = child->prev;
-
-        if (DCAS(&parent->next, &child->prev, pnext, gcprev, child, parent))
-          return;
-      }
-    }
   }
 
   int count(T val) {
-    auto current = head->next;
-    int c = 0;
+    int n_val = 0;
 
-    // iterate over nodes (buggy???)
-    while (current != nullptr) {
-      if (*current->data == val) c++;
-      current = current->next;
+    while (true) {
+      auto curr = head->next;
+      n_val = 0;
+
+      while (curr != tail && curr->data != nullptr) {
+        if (*curr->data == val) n_val++;
+        curr = curr->next;
+      }
+      if (curr == tail) break;
     }
+    return n_val;
+  }
 
-    return c;
+  // for testing, not safe
+  int print_all() {
+    auto curr = head->next;
+
+    while (curr != tail) {
+      std::cout << *curr->data << " ";
+      curr = curr->next;
+    }
+    std::cout << std::endl;
   }
 };
 
