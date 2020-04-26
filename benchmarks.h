@@ -1,3 +1,5 @@
 #pragma once
 
-void run_all();
+#include "configuration.h"
+
+void run_benchmarks(const Configuration &config);

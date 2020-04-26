@@ -1,9 +1,10 @@
 #include "benchmarks.h"
 #include "benchmark.h"
+#include "configuration.h"
 #include "lockfree-mcas/Deque.h"
-#include "lockfree-mcas/Stack.h"
 #include "lockfree-mcas/Queue.h"
 #include "lockfree-mcas/SortedList.h"
+#include "lockfree-mcas/Stack.h"
 
 static const int DATA_VALUE_RANGE_MIN = 0;
 static const int DATA_VALUE_RANGE_MAX = 256;
@@ -231,7 +232,19 @@ void benchmark_sorted_list() {
   }
 }
 
-void run_all() {
+void run_benchmarks(const Configuration &config) {
+  // TODO: run benchmarks according to config
+  // switch (config.sync_type) {
+  //   case Configuration::SYNC_UNDEF:
+  //     break;
+  //   case Configuration::LOCK:
+  //     break;
+  //   case Configuration::LOCKFREE:
+  //     break;
+  //   case Configuration::LOCKFREE_MCAS:
+  //     break;
+  // }
+
   benchmark_mwobject();
   benchmark_deque();
   benchmark_stack();
