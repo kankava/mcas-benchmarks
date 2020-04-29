@@ -16,6 +16,103 @@ static const int DATA_VALUE_RANGE_MIN = 0;
 static const int DATA_VALUE_RANGE_MAX = 256;
 static const int DATA_PREFILL = 512;
 
+namespace lockbased {
+
+void benchmark_deque() {
+  /* set up random number generator */
+  std::random_device rd;
+  std::mt19937 engine(rd());
+  std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN,
+                                                  DATA_VALUE_RANGE_MAX);
+
+  {
+    lockbased::Deque<int> deque;
+
+    // prefill deque with 1024 elements
+    for (int i = 0; i < DATA_PREFILL; i++) {
+      deque.push_back(uniform_dist(engine));
+    }
+
+    benchmark(6, u8"Locking Deque Update", [&deque](int random) {
+      auto choice1 =
+          (random % (2 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
+      auto choice2 =
+          (random % (2 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
+      if (choice1 == 0) {
+        if (choice2 == 0) {
+          deque.push_back(random % DATA_VALUE_RANGE_MAX);
+        } else {
+          deque.push_front(random % DATA_VALUE_RANGE_MAX);
+        }
+      } else {
+        if (choice2 == 0) {
+          deque.pop_back();
+        } else {
+          deque.pop_front();
+        }
+      }
+    });
+  }
+}
+
+void benchmark_stack() {
+  /* set up random number generator */
+  std::random_device rd;
+  std::mt19937 engine(rd());
+  std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN,
+                                                  DATA_VALUE_RANGE_MAX);
+
+  {
+    lockbased::Stack<int> stack;
+
+    // prefill stack with 1024 elements
+    for (int i = 0; i < DATA_PREFILL; i++) {
+      stack.push(uniform_dist(engine));
+    }
+
+    benchmark(6, u8"Locking Stack Update", [&stack](int random) {
+      auto choice =
+          (random % (2 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
+      if (choice == 0) {
+        stack.push(random % DATA_VALUE_RANGE_MAX);;
+      } else {
+        stack.pop();
+      }
+    });
+  }
+}
+
+void benchmark_queue() {
+  /* set up random number generator */
+  std::random_device rd;
+  std::mt19937 engine(rd());
+  std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN,
+                                                  DATA_VALUE_RANGE_MAX);
+
+  {
+    lockbased::Queue<int> queue;
+
+    // prefill queue with 1024 elements
+    for (int i = 0; i < DATA_PREFILL; i++) {
+      queue.push(uniform_dist(engine));
+    }
+
+    benchmark(6, u8"Locking Queue Update", [&queue](int random) {
+      auto choice =
+          (random % (2 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
+      if (choice == 0) {
+        queue.push(random % DATA_VALUE_RANGE_MAX);;
+      } else {
+        queue.pop();
+      }
+    });
+  }
+}
+
+}  // namespace lockbased
+
+namespace lockfree_mcas {
+
 void benchmark_mwobject() {
   struct {
     int a;
@@ -88,11 +185,10 @@ void benchmark_deque() {
   std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN,
                                                   DATA_VALUE_RANGE_MAX);
 
-  // benchmark deque
   {
     lockfree_mcas::Deque<int> deque;
 
-    // prefill list with 1024 elements
+    // prefill deque with 1024 elements
     for (int i = 0; i < DATA_PREFILL; i++) {
       deque.push_back(uniform_dist(engine));
     }
@@ -126,11 +222,10 @@ void benchmark_stack() {
   std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN,
                                                   DATA_VALUE_RANGE_MAX);
 
-  // benchmark deque
   {
     lockfree_mcas::Stack<int> stack;
 
-    // prefill list with 1024 elements
+    // prefill stack with 1024 elements
     for (int i = 0; i < DATA_PREFILL; i++) {
       stack.push(uniform_dist(engine));
     }
@@ -154,11 +249,10 @@ void benchmark_queue() {
   std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN,
                                                   DATA_VALUE_RANGE_MAX);
 
-  // benchmark deque
   {
     lockfree_mcas::Queue<int> queue;
 
-    // prefill list with 1024 elements
+    // prefill queue with 1024 elements
     for (int i = 0; i < DATA_PREFILL; i++) {
       queue.push(uniform_dist(engine));
     }
@@ -238,6 +332,8 @@ void benchmark_sorted_list() {
   }
 }
 
+} // namespace lockfree_mcas
+
 void run_benchmarks(const Configuration &config) {
   // TODO: run benchmarks according to config
   // switch (config.sync_type) {
@@ -251,9 +347,13 @@ void run_benchmarks(const Configuration &config) {
   //     break;
   // }
 
-  benchmark_mwobject();
+/*  benchmark_mwobject();
   benchmark_deque();
   benchmark_stack();
   benchmark_queue();
   benchmark_sorted_list();
+*/
+  lockbased::benchmark_deque();
+  lockbased::benchmark_stack();
+  lockbased::benchmark_queue();
 }

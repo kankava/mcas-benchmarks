@@ -2,7 +2,6 @@
 
 #include <memory>
 #include <mutex>
-#include "../mcas/mcas.h"
 
 namespace lockbased {
 
@@ -11,8 +10,8 @@ class Deque {
  private:
   struct Node {
     std::shared_ptr<T> data;
-    std::shared_ptr<Node> L;
-    std::shared_ptr<Node> R;
+    std::shared_ptr<Node> prev;
+    std::shared_ptr<Node> next;
     Node() = default;
   };
 
