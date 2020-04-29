@@ -1,6 +1,12 @@
 #include "benchmarks.h"
 #include "benchmark.h"
 #include "configuration.h"
+
+#include "lockbased/Deque.h"
+#include "lockbased/Queue.h"
+#include "lockbased/Stack.h"
+
+
 #include "lockfree-mcas/Deque.h"
 #include "lockfree-mcas/Queue.h"
 #include "lockfree-mcas/SortedList.h"

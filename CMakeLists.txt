@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.10)
 project(mcas-benchmarks)
 
 set(CMAKE_C_STANDARD 11)
@@ -25,8 +25,14 @@ endif ()
 
 find_package(Threads REQUIRED)
 
+file(GLOB LB_HEADER_FILES "lockbased/*.h")
+file(GLOB LB_SOURCE_FILES "lockbased/*.cpp")
+
 file(GLOB LFMCAS_HEADER_FILES "lockfree-mcas/*.h")
 file(GLOB LFMCAS_SOURCE_FILES "lockfree-mcas/*.cpp")
 
-add_executable(mcas_benchmakrs main.cpp benchmarks.cpp benchmarks.h benchmark.h ${LFMCAS_HEADER_FILES} ${LFMCAS_SOURCE_FILES})
-target_link_libraries(mcas_benchmakrs ${CMAKE_THREAD_LIBS_INIT})
+add_executable(mcas_benchmarks main.cpp benchmarks.cpp benchmarks.h benchmark.h mcas/mcas.h
+               ${LB_HEADER_FILES} ${LB_SOURCE_FILES}
+               ${LFMCAS_HEADER_FILES} ${LFMCAS_SOURCE_FILES}
+              )
+target_link_libraries(mcas_benchmarks ${CMAKE_THREAD_LIBS_INIT})
