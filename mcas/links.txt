@@ -1,3 +1,4 @@
 https://github.com/marloncalvo/RDCSS
 https://github.com/nealsid/casn
 https://github.com/karlmcguire/casn
+https://paulcavallaro.com/blog/a-practical-multi-word-compare-and-swap-operation/
