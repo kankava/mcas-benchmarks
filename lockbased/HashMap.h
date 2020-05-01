@@ -20,35 +20,43 @@ class HashMap {
     Node() = default;
   };
 
-  std::shared_ptr<Node> buckets[TABLE_SIZE];
+  std::shared_ptr<Node> bucket_heads[TABLE_SIZE];
+  std::shared_ptr<Node> bucket_tails[TABLE_SIZE];
   std::mutex hm_lock = {};
 
  public:
-  HashMap() : buckets() {}
+  HashMap() {
+    for (int i = 0; i < TABLE_SIZE; i++) {
+      bucket_heads[i] = std::make_shared<Node>();
+      bucket_tails[i] = std::make_shared<Node>();
+      bucket_heads[i]->next = bucket_tails[i];
+      bucket_tails[i]->prev = bucket_heads[i];
+    }
+  }
 
   void insert_or_assign(Key const& key, Value const& value) {
     std::lock_guard<std::mutex> lock(hm_lock);
     unsigned long index = std::hash<Key>{}(key) % TABLE_SIZE;
     
-    std::shared_ptr<Node> prev;
-    std::shared_ptr<Node> curr = buckets[index];
+    std::shared_ptr<Node> parent = bucket_heads[index];
+    std::shared_ptr<Node> curr = bucket_heads[index]->next;
+    std::shared_ptr<Node> tail = bucket_tails[index];
 
-    while (curr != nullptr && *curr->key != key) {
-        prev = curr;
+    while (curr != tail && *curr->key != key) {
+        parent = curr;
         curr = curr->next;
     }
 
-    if (curr == nullptr) {
-        std::shared_ptr<Node> const new_node = std::make_shared<Node>();
-        new_node->key = std::make_shared<Key>(key);
-        new_node->value = std::make_shared<Value>(value);
+    if (curr == tail) {
+      std::shared_ptr<Node> const new_node = std::make_shared<Node>();
+      new_node->key = std::make_shared<Key>(key);
+      new_node->value = std::make_shared<Value>(value);
 
-        if (prev == nullptr) {
-            buckets[index] = new_node;
-        } else {
-            prev->next = new_node;
-            new_node->prev = prev;
-        }
+      new_node->next = curr;
+      new_node->prev = parent;
+      
+      parent->next = new_node;
+      curr->prev = new_node;
     } else {
         *curr->value = value;
     }
@@ -57,9 +65,10 @@ class HashMap {
   bool contains(Key key) {
     std::lock_guard<std::mutex> lock(hm_lock);
     unsigned long index = std::hash<Key>{}(key) % TABLE_SIZE;
-    std::shared_ptr<Node> curr = buckets[index];
+    std::shared_ptr<Node> curr = bucket_heads[index]->next;
+    std::shared_ptr<Node> tail = bucket_tails[index];
 
-    while (curr != nullptr) {
+    while (curr != tail) {
       if (*curr->key == key) {
         return true;
       } else {
@@ -74,25 +83,17 @@ class HashMap {
     std::lock_guard<std::mutex> lock(hm_lock);
     unsigned long index = std::hash<Key>{}(key) % TABLE_SIZE;
 
-    std::shared_ptr<Node> prev;
-    std::shared_ptr<Node> curr = buckets[index];
+    std::shared_ptr<Node> curr = bucket_heads[index]->next;
+    std::shared_ptr<Node> tail = bucket_tails[index];
 
-    while (curr != nullptr && *curr->key != key) {
-        prev = curr;
+    while (curr != tail && *curr->key != key) {
         curr = curr->next;
     }
 
-    if (curr == nullptr) return;
+    if (curr == tail) return;
 
-    if (prev == nullptr) {
-      if (curr->next) {
-        curr->next->prev = nullptr;
-      }
-      buckets[index] = curr->next;
-    } else {
-        curr->next->prev = curr->prev;
-        curr->prev->next = curr->next;
-    }
+    curr->next->prev = curr->prev;
+    curr->prev->next = curr->next;
 
     return;
   }
@@ -101,9 +102,10 @@ class HashMap {
     std::lock_guard<std::mutex> lock(hm_lock);
     unsigned long index = std::hash<Key>{}(key) % TABLE_SIZE;
 
-    std::shared_ptr<Node> curr = buckets[index];
+    std::shared_ptr<Node> curr = bucket_heads[index]->next;
+    std::shared_ptr<Node> tail = bucket_tails[index];
 
-     while (curr != nullptr) {
+     while (curr != tail) {
         if (*curr->key == key) return curr->value;
     }
 
