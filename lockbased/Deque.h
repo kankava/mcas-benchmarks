@@ -17,7 +17,7 @@ class Deque {
 
   std::shared_ptr<Node> head;
   std::shared_ptr<Node> tail;
-  std::mutex op_lock = {};
+  std::mutex deque_lock = {};
 
  public:
   Deque() {
@@ -30,7 +30,7 @@ class Deque {
 
   // push_left
   void push_front(T const& data) {
-    std::lock_guard<std::mutex> lock(op_lock);
+    std::lock_guard<std::mutex> lock(deque_lock);
     
     std::shared_ptr<Node> const new_node = std::make_shared<Node>();
     new_node->data = std::make_shared<T>(data);
@@ -44,7 +44,7 @@ class Deque {
 
   // push_right
   void push_back(T const& data) {
-    std::lock_guard<std::mutex> lock(op_lock);
+    std::lock_guard<std::mutex> lock(deque_lock);
     
     std::shared_ptr<Node> const new_node = std::make_shared<Node>();
     new_node->data = std::make_shared<T>(data);
@@ -58,7 +58,7 @@ class Deque {
 
   // pop_left
   std::shared_ptr<T> pop_front() {
-    std::lock_guard<std::mutex> lock(op_lock);
+    std::lock_guard<std::mutex> lock(deque_lock);
     
     if (head->next != tail) {
       std::shared_ptr<T> data = head->next->data;
@@ -70,7 +70,7 @@ class Deque {
 
   // pop_right
   std::shared_ptr<T> pop_back() {
-    std::lock_guard<std::mutex> lock(op_lock);
+    std::lock_guard<std::mutex> lock(deque_lock);
     
     if (tail->prev != head) {
       std::shared_ptr<T> data = tail->prev->data;
