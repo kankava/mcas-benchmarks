@@ -1,3 +1,5 @@
+// Greenwald DCAS Based 
+
 #pragma once
 
 #include <iostream>
@@ -19,14 +21,14 @@ class SortedList {
 
   std::shared_ptr<Node> head;
   std::shared_ptr<Node> tail;
-  // std::shared_ptr<Node> dummy;
+  std::shared_ptr<Node> dummy;
   std::mutex cas_lock = {};
 
  public:
   SortedList() {
     head = std::make_shared<Node>();
     tail = std::make_shared<Node>();
-    // dummy = std::make_shared<Node>();
+    dummy = std::make_shared<Node>();
     head->next = tail;
     tail->prev = head;
   }
@@ -34,8 +36,8 @@ class SortedList {
   void insert(T const& data) {
     std::shared_ptr<Node> const new_node = std::make_shared<Node>();
     new_node->data = std::make_shared<T>(data);
-    // new_node->next = dummy;
-    // new_node->prev = dummy;
+    new_node->next = dummy;
+    new_node->prev = dummy;
 
     while (true) {
       auto parent = head;
@@ -46,16 +48,16 @@ class SortedList {
         curr = curr->next;
       }
 
-      new_node->next = curr;
-      new_node->prev = parent;
+      // new_node->next = curr;
+      // new_node->prev = parent;
       {
         std::lock_guard<std::mutex> lock(cas_lock);
-        // if (CAS4(&parent->next, &curr->prev, &new_node->next, &new_node->prev,
-        //           curr, parent, dummy, dummy,
-        //           new_node, new_node, curr, parent))
-        if (DCAS(&parent->next, &curr->prev,
-                 curr, parent,
-                 new_node, new_node))
+        if (CAS4(&parent->next, &curr->prev, &new_node->next, &new_node->prev,
+                  curr, parent, dummy, dummy,
+                  new_node, new_node, curr, parent))
+        // if (DCAS(&parent->next, &curr->prev,
+        //         curr, parent,
+        //         new_node, new_node))
           return;
       }
     }
