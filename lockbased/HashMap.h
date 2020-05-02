@@ -3,8 +3,6 @@
 #include <memory>
 #include <mutex>
 
-#include "SortedList.h"
-
 #define TABLE_SIZE 10000
 
 namespace lockbased {
