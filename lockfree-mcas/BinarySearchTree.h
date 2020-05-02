@@ -69,8 +69,7 @@ class BinarySearchTree {
     }
   }
 
-  void remove(const T& value) {
-    // bst_t *prev = nullptr, *ptr = root, *last, *present, *temp;
+  void remove(T value) {
     std::shared_ptr<Node> curr = root;
     std::shared_ptr<Node> prev = nullptr;
     node_type type = LEFT;
@@ -82,7 +81,6 @@ class BinarySearchTree {
               while (true) {
                 auto last = prev;
                 auto present = curr;
-                // auto temp = nullptr;
                 if (DCAS(&curr, &prev->left,
                          present, present,
                          dummy->left, dummy->left)) return;
@@ -91,7 +89,6 @@ class BinarySearchTree {
               while (true) {
                 auto last = prev;
                 auto present = curr;
-                auto temp = nullptr;
                 if (DCAS(&curr, &prev->right,
                          present, present,
                          dummy->right, dummy->right)) return;
@@ -99,13 +96,13 @@ class BinarySearchTree {
             }
           } else {
             auto last = root;
-            auto temp = nullptr;
+            //auto temp = dummy->left;
             if (CAS(&root, last, dummy->left)) return;
           }  // deleted node is root
         } else if (curr->left &&
                    curr->right) {  // node to be removed has two children’s
-          curr->value = find_minimum_value(curr->right);  // find minimum value from right subtree
-          value = curr->value;
+          curr->value = get_min(curr->right);  // find minimum value from right subtree
+          value = *curr->value;
           prev = curr;
           curr = curr->right;  // continue from right subtree delete min node
           type = RIGHT;
@@ -126,7 +123,7 @@ class BinarySearchTree {
               if (curr->left) {
                 while (true) {
                   auto present = curr;
-                  auto temp = nullptr;
+                  auto temp = dummy->left;
                   if (DCAS(&prev->left, &curr,
                            present, present,
                            present->left,
@@ -134,7 +131,7 @@ class BinarySearchTree {
                 }
               } else {
                 auto present = curr;
-                auto temp = nullptr;
+                auto temp = dummy->left;
                 if (DCAS(&prev->right, &curr,
                          present, present,
                          present->right, temp)) return;
@@ -143,14 +140,14 @@ class BinarySearchTree {
               if (curr->left) {
                 auto last = curr->left;
                 auto present = curr;
-                auto temp = nullptr;
+                auto temp = dummy->left;
                 if (DCAS(&prev->left, &curr,
                          present, present,
                          last, temp)) return;
               } else {
                 auto last = curr->right;
                 auto present = curr;
-                auto temp = nullptr;
+                auto temp = dummy->left;
                 if(DCAS(&prev->right, &curr,
                         present, present,
                         last, temp)) return;
@@ -160,7 +157,7 @@ class BinarySearchTree {
         }
       }
       prev = curr;
-      if (value < curr->value) {
+      if (value < *curr->value) {
         curr = curr->left;
         type = LEFT;
       } else {
@@ -186,16 +183,32 @@ class BinarySearchTree {
     return min;
   }
 
+  std::shared_ptr<T> get_min(std::shared_ptr<Node> _root) {
+    auto curr = _root;
+    auto min = _root ? _root->value : nullptr;
+
+    while (curr) {
+      if (*curr->value < *min) min = curr->value;
+      if (curr->left) {
+        curr = curr->left;
+      } else if (curr->right) {
+        curr = curr->right;
+      } else
+        curr = nullptr;
+    }
+    return min;
+  }
+
   std::shared_ptr<T> get_max() {
     auto curr = root;
     auto max = root ? root->value : nullptr;
 
     while (curr) {
       if (*curr->value > *max) max = curr->value;
-      if (curr->left) {
-        curr = curr->left;
-      } else if (curr->right) {
+      if (curr->right) {
         curr = curr->right;
+      } else if (curr->left) {
+        curr = curr->left;
       } else
         curr = nullptr;
     }
