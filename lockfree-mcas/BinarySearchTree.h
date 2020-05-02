@@ -45,10 +45,11 @@ class BinarySearchTree {
       }
     }
 
-    std::shared_ptr<Node> curr = root;
-    std::shared_ptr<Node> prev = nullptr;
-    node_type type = LEFT;
     while (true) {
+      std::shared_ptr<Node> curr = root;
+      std::shared_ptr<Node> prev = nullptr;
+      node_type type = LEFT;
+      
       while (curr) {
         prev = curr;
         if (value < *curr->value) {
@@ -61,15 +62,22 @@ class BinarySearchTree {
       }
       if (type == LEFT) {
         auto last = prev->left;
-        if (CAS(&prev->left, last, new_node)) return;
+        {
+          std::lock_guard<std::mutex> lock(cas_lock);
+          if (CAS(&prev->left, last, new_node)) return;
+        }
       } else {
         auto last = prev->right;
-        if (CAS(&prev->right, last, new_node)) return;
+        {
+          std::lock_guard<std::mutex> lock(cas_lock);
+          if (CAS(&prev->right, last, new_node)) return;
+        }
       }
     }
   }
 
   void remove(T value) {
+    retry:
     std::shared_ptr<Node> curr = root;
     std::shared_ptr<Node> prev = nullptr;
     node_type type = LEFT;
@@ -81,23 +89,34 @@ class BinarySearchTree {
               while (true) {
                 auto last = prev;
                 auto present = curr;
-                if (DCAS(&curr, &prev->left,
-                         present, present,
-                         dummy->left, dummy->left)) return;
+                {
+                  std::lock_guard<std::mutex> lock(cas_lock);
+                  if (DCAS(&curr, &prev->left,
+                            present, present,
+                            dummy->left, dummy->left)) return;
+                }
+                goto retry;
               }
             } else {
               while (true) {
                 auto last = prev;
                 auto present = curr;
-                if (DCAS(&curr, &prev->right,
-                         present, present,
-                         dummy->right, dummy->right)) return;
+                {
+                  std::lock_guard<std::mutex> lock(cas_lock);
+                  if (DCAS(&curr, &prev->right,
+                            present, present,
+                            dummy->right, dummy->right)) return;
+                }
+                goto retry;
               }
             }
           } else {
             auto last = root;
             //auto temp = dummy->left;
-            if (CAS(&root, last, dummy->left)) return;
+            {
+              std::lock_guard<std::mutex> lock(cas_lock);
+              if (CAS(&root, last, dummy->left)) return;
+            }
           }  // deleted node is root
         } else if (curr->left &&
                    curr->right) {  // node to be removed has two children’s
@@ -112,11 +131,17 @@ class BinarySearchTree {
             if (root->left) {
               auto last = root;
               auto temp = root->left;
-              if (CAS(&root, last, temp)) return;
+              {
+                std::lock_guard<std::mutex> lock(cas_lock);
+                if (CAS(&root, last, temp)) return;
+              }
             } else {
               auto last = root;
               auto temp = root->right;
-              if (CAS(&root, last, temp)) return;
+              {
+                std::lock_guard<std::mutex> lock(cas_lock);
+                if (CAS(&root, last, temp)) return;
+              }
             }
           } else {  // subtree with one child
             if (type == LEFT) {
@@ -124,33 +149,45 @@ class BinarySearchTree {
                 while (true) {
                   auto present = curr;
                   auto temp = dummy->left;
-                  if (DCAS(&prev->left, &curr,
-                           present, present,
-                           present->left,
-                           temp)) return;
+                  {
+                    std::lock_guard<std::mutex> lock(cas_lock);
+                    if (DCAS(&prev->left, &curr,
+                              present, present,
+                              present->left, temp)) return;
+                  }
+                  goto retry;
                 }
               } else {
                 auto present = curr;
                 auto temp = dummy->left;
-                if (DCAS(&prev->right, &curr,
-                         present, present,
-                         present->right, temp)) return;
+                {
+                  std::lock_guard<std::mutex> lock(cas_lock);
+                  if (DCAS(&prev->right, &curr,
+                            present, present,
+                            present->right, temp)) return;
+                }
               }
             } else {
               if (curr->left) {
                 auto last = curr->left;
                 auto present = curr;
                 auto temp = dummy->left;
-                if (DCAS(&prev->left, &curr,
-                         present, present,
-                         last, temp)) return;
+                {
+                  std::lock_guard<std::mutex> lock(cas_lock);
+                  if (DCAS(&prev->left, &curr,
+                            present, present,
+                            last, temp)) return;
+                }
               } else {
                 auto last = curr->right;
                 auto present = curr;
                 auto temp = dummy->left;
-                if(DCAS(&prev->right, &curr,
-                        present, present,
-                        last, temp)) return;
+                {
+                  std::lock_guard<std::mutex> lock(cas_lock);
+                  if(DCAS(&prev->right, &curr,
+                           present, present,
+                           last, temp)) return;
+                }
               }
             }
           }
