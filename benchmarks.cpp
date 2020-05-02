@@ -10,8 +10,9 @@
 
 #include "lockfree-mcas/Deque.h"
 #include "lockfree-mcas/Queue.h"
-#include "lockfree-mcas/SortedList.h"
 #include "lockfree-mcas/Stack.h"
+#include "lockfree-mcas/SortedList.h"
+#include "lockfree-mcas/HashMap.h"
 
 static const int DATA_VALUE_RANGE_MIN = 0;
 static const int DATA_VALUE_RANGE_MAX = 256;
@@ -426,7 +427,7 @@ void mixed(List& l, int random) {
 }
 
 void benchmark_sorted_list() {
-/* set up random number generator */
+  /* set up random number generator */
   std::random_device rd;
   std::mt19937 engine(rd());
   std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN, DATA_VALUE_RANGE_MAX);
@@ -457,6 +458,68 @@ void benchmark_sorted_list() {
   }
 }
 
+template<typename HashMap>
+void hm_lookup(HashMap& map, int random) {
+  /* read operations: 100% count */
+  map.contains(random % DATA_VALUE_RANGE_MAX);
+}
+
+template<typename HashMap>
+void hm_update(HashMap& map, int random) {
+  /* update operations: 50% insert, 50% remove */
+  auto choice = (random % (2*DATA_VALUE_RANGE_MAX))/DATA_VALUE_RANGE_MAX;
+  if(choice == 0) {
+    map.insert_or_assign(random % DATA_VALUE_RANGE_MAX, random % DATA_VALUE_RANGE_MAX);
+  } else {
+    map.remove(random % DATA_VALUE_RANGE_MAX);
+  }
+}
+
+template<typename HashMap>
+void hm_mixed(HashMap& map, int random) {
+  /* mixed operations: 6.25% update, 93.75% count */
+  auto choice = (random % (32*DATA_VALUE_RANGE_MAX))/DATA_VALUE_RANGE_MAX;
+  if(choice == 0) {
+    map.insert_or_assign(random % DATA_VALUE_RANGE_MAX, random % DATA_VALUE_RANGE_MAX);
+  } else if(choice == 1) {
+    map.remove(random % DATA_VALUE_RANGE_MAX);
+  } else {
+    map.contains(random % DATA_VALUE_RANGE_MAX);
+  }
+}
+
+void benchmark_hashmap() {
+  /* set up random number generator */
+  std::random_device rd;
+  std::mt19937 engine(rd());
+  std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN, DATA_VALUE_RANGE_MAX);
+
+  {
+    lockfree_mcas::HashMap<int, int> l1;
+    /* prefill list with 1024 elements */
+    for(int i = 0; i < DATA_PREFILL; i++) {
+      l1.insert_or_assign(uniform_dist(engine), uniform_dist(engine));
+    }
+    benchmark(6, u8"lock-free hashmap lookup", [&l1](int random){
+      hm_lookup(l1, random);
+    });
+    benchmark(6, u8"lock-free hashmap update", [&l1](int random){
+      hm_update(l1, random);
+    });
+  }
+
+  {
+    lockfree_mcas::HashMap<int, int> l1;
+    /* prefill list with 1024 elements */
+    for(int i = 0; i < DATA_PREFILL; i++) {
+      l1.insert_or_assign(uniform_dist(engine), uniform_dist(engine));
+    }
+    benchmark(6, u8"lock-free hashmap mixed", [&l1](int random){
+      hm_mixed(l1, random);
+    });
+  }
+}
+
 } // namespace lockfree_mcas
 
 void run_benchmarks(const Configuration &config) {
@@ -472,15 +535,18 @@ void run_benchmarks(const Configuration &config) {
   //     break;
   // }
 
-/*  benchmark_mwobject();
-  benchmark_deque();
-  benchmark_stack();
-  benchmark_queue();
-  benchmark_sorted_list();
-*/
-  lockbased::benchmark_deque();
-  lockbased::benchmark_stack();
-  lockbased::benchmark_queue();
-  lockbased::benchmark_sorted_list();
+  /*  benchmark_mwobject();
+    benchmark_deque();
+    benchmark_stack();
+    benchmark_queue();
+    benchmark_sorted_list();
+  */
+  // lockbased::benchmark_deque();
+  // lockbased::benchmark_stack();
+  // lockbased::benchmark_queue();
+  // lockbased::benchmark_sorted_list();
   lockbased::benchmark_hashmap();
+  
+  // lockfree_mcas::benchmark_sorted_list();
+  lockfree_mcas::benchmark_hashmap();
 }
