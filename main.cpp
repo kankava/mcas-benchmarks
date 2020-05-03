@@ -11,7 +11,8 @@ int main(int argc, char *argv[])
   options.add_options()
       ("n,nthreads", "Number of threads", cxxopts::value<int>()->default_value("1"))
       ("i,iter", "Number of iterations", cxxopts::value<int>()->default_value("1"))
-      ("t,type", "Synchronization type: lock, lockfree, lockfree-mcas", cxxopts::value<std::string>())
+      ("t,time", "Duration of benchmark in sec", cxxopts::value<int>()->default_value("1"))
+      ("s,sync", "Synchronization type: lock, lockfree, lockfree-mcas", cxxopts::value<std::string>())
       ("a,algorithm", "Benchmark algorithm: mwobject, stack, queue, deque, sorted-list, hashmap, bst", cxxopts::value<std::string>())
       ("d,debug", "Enable debugging", cxxopts::value<bool>()->default_value("false"))
       ("h,help", "Print usage")
@@ -31,11 +32,12 @@ int main(int argc, char *argv[])
   conf.debug = result["debug"].as<bool>();
   conf.n_threads = result["nthreads"].as<int>();
   conf.n_iter = result["iter"].as<int>();
+  conf.time = result["time"].as<int>();
   conf.sync_type = Configuration::SyncType::SYNC_UNDEF;
   conf.benchmarking_algorithm = Configuration::BenchmarkAlgorithm::ALG_UNDEF;
 
-  if (result.count("type")) {
-    std::string sync_type = result["type"].as<std::string>();
+  if (result.count("sync")) {
+    std::string sync_type = result["sync"].as<std::string>();
     if (sync_type == "lock") conf.sync_type = Configuration::SyncType::LOCK;
     if (sync_type == "lockfree") conf.sync_type = Configuration::SyncType::LOCKFREE;
     if (sync_type == "lockfree-mcas") conf.sync_type = Configuration::SyncType::LOCKFREE_MCAS;
@@ -69,6 +71,7 @@ int main(int argc, char *argv[])
               << "debug = " << conf.debug << std::endl
               << "n iter = " << conf.n_iter << std::endl
               << "n threads = " << conf.n_threads << std::endl
+              << "time = " << conf.time << std::endl
               << "type = " << conf.sync_type << std::endl
               << "algorithm = " << conf.benchmarking_algorithm << std::endl;
   }
