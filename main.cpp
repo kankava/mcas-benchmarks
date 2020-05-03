@@ -31,6 +31,8 @@ int main(int argc, char *argv[])
   conf.debug = result["debug"].as<bool>();
   conf.n_threads = result["nthreads"].as<int>();
   conf.n_iter = result["iter"].as<int>();
+  conf.sync_type = Configuration::SyncType::SYNC_UNDEF;
+  conf.benchmarking_algorithm = Configuration::BenchmarkAlgorithm::ALG_UNDEF;
 
   if (result.count("type")) {
     std::string sync_type = result["type"].as<std::string>();
@@ -39,28 +41,40 @@ int main(int argc, char *argv[])
     if (sync_type == "lockfree-mcas") conf.sync_type = Configuration::SyncType::LOCKFREE_MCAS;
   }
 
-  if (result.count("algorithm")) {
-    std::string sync_type = result["algorithm"].as<std::string>();
-    if (sync_type == "mwobject") conf.benchmarking_algorithm = Configuration::BenchmarkAlgorithm::MWOBJECT;
-    if (sync_type == "stack") conf.benchmarking_algorithm = Configuration::BenchmarkAlgorithm::STACK;
-    if (sync_type == "queue") conf.benchmarking_algorithm = Configuration::BenchmarkAlgorithm::QUEUE;
-    if (sync_type == "deque") conf.benchmarking_algorithm = Configuration::BenchmarkAlgorithm::DEQUE;
-    if (sync_type == "sorted-list") conf.benchmarking_algorithm = Configuration::BenchmarkAlgorithm::SORTEDLIST;
-    if (sync_type == "hashmap") conf.benchmarking_algorithm = Configuration::BenchmarkAlgorithm::HASHMAP;
-    if (sync_type == "bst") conf.benchmarking_algorithm = Configuration::BenchmarkAlgorithm::BST;
+  if (conf.sync_type == Configuration::SyncType::SYNC_UNDEF) {
+    std::cout << "sync type is not defined" << std::endl;
+    std::cout << options.help() << std::endl;
+    return 0;
   }
 
-  // std::cout << "configuration:" << std::endl
-  //           << "debug = " << conf.debug << std::endl
-  //           << "n iter = " << conf.n_iter << std::endl
-  //           << "n threads = " << conf.n_threads << std::endl
-  //           << "type = " << conf.sync_type << std::endl
-  //           << "algorithm = " << conf.benchmarking_algorithm << std::endl;
+  if (result.count("algorithm")) {
+    std::string algorithm = result["algorithm"].as<std::string>();
+    if (algorithm == "mwobject") conf.benchmarking_algorithm = Configuration::BenchmarkAlgorithm::MWOBJECT;
+    if (algorithm == "stack") conf.benchmarking_algorithm = Configuration::BenchmarkAlgorithm::STACK;
+    if (algorithm == "queue") conf.benchmarking_algorithm = Configuration::BenchmarkAlgorithm::QUEUE;
+    if (algorithm == "deque") conf.benchmarking_algorithm = Configuration::BenchmarkAlgorithm::DEQUE;
+    if (algorithm == "sorted-list") conf.benchmarking_algorithm = Configuration::BenchmarkAlgorithm::SORTEDLIST;
+    if (algorithm == "hashmap") conf.benchmarking_algorithm = Configuration::BenchmarkAlgorithm::HASHMAP;
+    if (algorithm == "bst") conf.benchmarking_algorithm = Configuration::BenchmarkAlgorithm::BST;
+  }
+
+  if (conf.benchmarking_algorithm == Configuration::BenchmarkAlgorithm::ALG_UNDEF) {
+    std::cout << "algorithm is not defined" << std::endl;
+    std::cout << options.help() << std::endl;
+    return 0;
+  }
+
+  if (conf.debug) {
+    std::cout << "configuration:" << std::endl
+              << "debug = " << conf.debug << std::endl
+              << "n iter = " << conf.n_iter << std::endl
+              << "n threads = " << conf.n_threads << std::endl
+              << "type = " << conf.sync_type << std::endl
+              << "algorithm = " << conf.benchmarking_algorithm << std::endl;
+  }
 
   std::cout << "MCAS Benchmarks started" << std::endl;
-
   run_benchmarks(conf);
-
   std::cout << "MCAS Benchmarks finished" << std::endl;
 
   return 0;
