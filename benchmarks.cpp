@@ -3,23 +3,23 @@
 #include "configuration.h"
 
 #include "lockbased/Deque.h"
-#include "lockbased/Queue.h"
-#include "lockbased/Stack.h"
-#include "lockbased/SortedList.h"
 #include "lockbased/HashMap.h"
+#include "lockbased/Queue.h"
+#include "lockbased/SortedList.h"
+#include "lockbased/Stack.h"
 
-#include "lockfree-mcas/Deque.h"
-#include "lockfree-mcas/Queue.h"
-#include "lockfree-mcas/Stack.h"
-#include "lockfree-mcas/SortedList.h"
-#include "lockfree-mcas/HashMap.h"
 #include "lockfree-mcas/BinarySearchTree.h"
+#include "lockfree-mcas/Deque.h"
+#include "lockfree-mcas/HashMap.h"
+#include "lockfree-mcas/Queue.h"
+#include "lockfree-mcas/SortedList.h"
+#include "lockfree-mcas/Stack.h"
 
 static const int DATA_VALUE_RANGE_MIN = 0;
 static const int DATA_VALUE_RANGE_MAX = 256;
 static const int DATA_PREFILL = 512;
 
-void benchmark_mwobject(const Configuration &config) {
+void benchmark_mwobject(const Configuration& config) {
   struct {
     int a;
     int b;
@@ -54,8 +54,8 @@ void benchmark_mwobject(const Configuration &config) {
           {
             std::lock_guard<std::mutex> lock(cas_lock);
             if (CAS(&counters.a, &counters.b, &counters.c, &counters.d,
-                    old_a, old_b, old_c, old_d,
-                    new_a, new_b, new_c, new_d))
+                     old_a, old_b, old_c, old_d,
+                     new_a, new_b, new_c, new_d))
               break;
           }
         }
@@ -73,9 +73,8 @@ void benchmark_mwobject(const Configuration &config) {
 
           {
             std::lock_guard<std::mutex> lock(cas_lock);
-            if (CAS(&counters.a, &counters.b, &counters.c, &counters.d,
-                    old_a, old_b, old_c, old_d,
-                    new_a, new_b, new_c, new_d))
+            if (CAS(&counters.a, &counters.b, &counters.c, &counters.d, old_a,
+                    old_b, old_c, old_d, new_a, new_b, new_c, new_d))
               break;
           }
         }
@@ -84,8 +83,8 @@ void benchmark_mwobject(const Configuration &config) {
   }
 }
 
-template<typename Deque>
-void benchmark_deque(Deque &deque, const Configuration &config) {
+template <typename Deque>
+void benchmark_deque(Deque& deque, const Configuration& config) {
   /* set up random number generator */
   std::random_device rd;
   std::mt19937 engine(rd());
@@ -120,8 +119,8 @@ void benchmark_deque(Deque &deque, const Configuration &config) {
   }
 }
 
-template<typename Stack>
-void benchmark_stack(Stack &stack, const Configuration &config) {
+template <typename Stack>
+void benchmark_stack(Stack& stack, const Configuration& config) {
   /* set up random number generator */
   std::random_device rd;
   std::mt19937 engine(rd());
@@ -138,7 +137,8 @@ void benchmark_stack(Stack &stack, const Configuration &config) {
       auto choice =
           (random % (2 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
       if (choice == 0) {
-        stack.push(random % DATA_VALUE_RANGE_MAX);;
+        stack.push(random % DATA_VALUE_RANGE_MAX);
+        ;
       } else {
         stack.pop();
       }
@@ -146,8 +146,8 @@ void benchmark_stack(Stack &stack, const Configuration &config) {
   }
 }
 
-template<typename Queue>
-void benchmark_queue(Queue &queue, const Configuration &config) {
+template <typename Queue>
+void benchmark_queue(Queue& queue, const Configuration& config) {
   /* set up random number generator */
   std::random_device rd;
   std::mt19937 engine(rd());
@@ -164,7 +164,8 @@ void benchmark_queue(Queue &queue, const Configuration &config) {
       auto choice =
           (random % (2 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
       if (choice == 0) {
-        queue.push(random % DATA_VALUE_RANGE_MAX);;
+        queue.push(random % DATA_VALUE_RANGE_MAX);
+        ;
       } else {
         queue.pop();
       }
@@ -172,194 +173,192 @@ void benchmark_queue(Queue &queue, const Configuration &config) {
   }
 }
 
-template<typename List>
+template <typename List>
 void read(List& l, int random) {
   /* read operations: 100% count */
   l.count(random % DATA_VALUE_RANGE_MAX);
 }
 
-template<typename List>
+template <typename List>
 void update(List& l, int random) {
   /* update operations: 50% insert, 50% remove */
-  auto choice = (random % (2*DATA_VALUE_RANGE_MAX))/DATA_VALUE_RANGE_MAX;
-  if(choice == 0) {
+  auto choice = (random % (2 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
+  if (choice == 0) {
     l.insert(random % DATA_VALUE_RANGE_MAX);
   } else {
     l.remove(random % DATA_VALUE_RANGE_MAX);
   }
 }
 
-template<typename List>
+template <typename List>
 void mixed(List& l, int random) {
   /* mixed operations: 6.25% update, 93.75% count */
-  auto choice = (random % (32*DATA_VALUE_RANGE_MAX))/DATA_VALUE_RANGE_MAX;
-  if(choice == 0) {
+  auto choice = (random % (32 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
+  if (choice == 0) {
     l.insert(random % DATA_VALUE_RANGE_MAX);
-  } else if(choice == 1) {
+  } else if (choice == 1) {
     l.remove(random % DATA_VALUE_RANGE_MAX);
   } else {
     l.count(random % DATA_VALUE_RANGE_MAX);
   }
 }
 
-template<typename List>
-void benchmark_sorted_list(List &list1, List &list2, const Configuration &config) {
+template <typename List>
+void benchmark_sorted_list(List& list1, List& list2,
+                           const Configuration& config) {
   /* set up random number generator */
   std::random_device rd;
   std::mt19937 engine(rd());
-  std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN, DATA_VALUE_RANGE_MAX);
+  std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN,
+                                                  DATA_VALUE_RANGE_MAX);
 
   {
     /* prefill list with 1024 elements */
-    for(int i = 0; i < DATA_PREFILL; i++) {
+    for (int i = 0; i < DATA_PREFILL; i++) {
       list1.insert(uniform_dist(engine));
     }
-    benchmark(config.n_threads, u8"read", [&list1](int random){
-      read(list1, random);
-    });
-    benchmark(config.n_threads, u8"update", [&list1](int random){
-      update(list1, random);
-    });
+    benchmark(config.n_threads, u8"read",
+              [&list1](int random) { read(list1, random); });
+    benchmark(config.n_threads, u8"update",
+              [&list1](int random) { update(list1, random); });
   }
 
   {
     /* prefill list with 1024 elements */
-    for(int i = 0; i < DATA_PREFILL; i++) {
+    for (int i = 0; i < DATA_PREFILL; i++) {
       list2.insert(uniform_dist(engine));
     }
-    benchmark(6, u8"mixed", [&list2](int random){
-      mixed(list2, random);
-    });
+    benchmark(6, u8"mixed", [&list2](int random) { mixed(list2, random); });
   }
 }
 
-template<typename HashMap>
+template <typename HashMap>
 void hm_lookup(HashMap& map, int random) {
   /* read operations: 100% count */
   map.contains(random % DATA_VALUE_RANGE_MAX);
 }
 
-template<typename HashMap>
+template <typename HashMap>
 void hm_update(HashMap& map, int random) {
   /* update operations: 50% insert, 50% remove */
-  auto choice = (random % (2*DATA_VALUE_RANGE_MAX))/DATA_VALUE_RANGE_MAX;
-  if(choice == 0) {
-    map.insert_or_assign(random % DATA_VALUE_RANGE_MAX, random % DATA_VALUE_RANGE_MAX);
+  auto choice = (random % (2 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
+  if (choice == 0) {
+    map.insert_or_assign(random % DATA_VALUE_RANGE_MAX,
+                         random % DATA_VALUE_RANGE_MAX);
   } else {
     map.remove(random % DATA_VALUE_RANGE_MAX);
   }
 }
 
-template<typename HashMap>
+template <typename HashMap>
 void hm_mixed(HashMap& map, int random) {
   /* mixed operations: 6.25% update, 93.75% count */
-  auto choice = (random % (32*DATA_VALUE_RANGE_MAX))/DATA_VALUE_RANGE_MAX;
-  if(choice == 0) {
-    map.insert_or_assign(random % DATA_VALUE_RANGE_MAX, random % DATA_VALUE_RANGE_MAX);
-  } else if(choice == 1) {
+  auto choice = (random % (32 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
+  if (choice == 0) {
+    map.insert_or_assign(random % DATA_VALUE_RANGE_MAX,
+                         random % DATA_VALUE_RANGE_MAX);
+  } else if (choice == 1) {
     map.remove(random % DATA_VALUE_RANGE_MAX);
   } else {
     map.contains(random % DATA_VALUE_RANGE_MAX);
   }
 }
 
-template<typename HashMap>
-void benchmark_hashmap(HashMap& map1, HashMap& map2, const Configuration &config) {
+template <typename HashMap>
+void benchmark_hashmap(HashMap& map1, HashMap& map2,
+                       const Configuration& config) {
   /* set up random number generator */
   std::random_device rd;
   std::mt19937 engine(rd());
-  std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN, DATA_VALUE_RANGE_MAX);
+  std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN,
+                                                  DATA_VALUE_RANGE_MAX);
 
   {
     /* prefill list with 1024 elements */
-    for(int i = 0; i < DATA_PREFILL; i++) {
+    for (int i = 0; i < DATA_PREFILL; i++) {
       map1.insert_or_assign(uniform_dist(engine), uniform_dist(engine));
     }
-    benchmark(config.n_threads, u8"read", [&map1](int random){
-      hm_lookup(map1, random);
-    });
-    benchmark(config.n_threads, u8"update", [&map1](int random){
-      hm_update(map1, random);
-    });
+    benchmark(config.n_threads, u8"read",
+              [&map1](int random) { hm_lookup(map1, random); });
+    benchmark(config.n_threads, u8"update",
+              [&map1](int random) { hm_update(map1, random); });
   }
 
   {
     /* prefill list with 1024 elements */
-    for(int i = 0; i < DATA_PREFILL; i++) {
+    for (int i = 0; i < DATA_PREFILL; i++) {
       map2.insert_or_assign(uniform_dist(engine), uniform_dist(engine));
     }
-    benchmark(config.n_threads, u8"mixed", [&map2](int random){
-      hm_mixed(map2, random);
-    });
+    benchmark(config.n_threads, u8"mixed",
+              [&map2](int random) { hm_mixed(map2, random); });
   }
 }
 
-template<typename BST>
+template <typename BST>
 void bst_lookup(BST& bst, int random) {
   /* read operations: 100% count */
   bst.get_min();
 }
 
-template<typename BST>
+template <typename BST>
 void bst_update(BST& bst, int random) {
   /* update operations: 50% insert, 50% remove */
-  auto choice = (random % (2*DATA_VALUE_RANGE_MAX))/DATA_VALUE_RANGE_MAX;
-  if(choice == 0) {
+  auto choice = (random % (2 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
+  if (choice == 0) {
     bst.insert(random % DATA_VALUE_RANGE_MAX);
   } else {
     bst.remove(random % DATA_VALUE_RANGE_MAX);
   }
 }
 
-template<typename BST>
+template <typename BST>
 void bst_mixed(BST& bst, int random) {
   /* mixed operations: 6.25% update, 93.75% count */
-  auto choice = (random % (32*DATA_VALUE_RANGE_MAX))/DATA_VALUE_RANGE_MAX;
-  if(choice == 0) {
+  auto choice = (random % (32 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
+  if (choice == 0) {
     bst.insert(random % DATA_VALUE_RANGE_MAX);
-  } else if(choice == 1) {
+  } else if (choice == 1) {
     bst.remove(random % DATA_VALUE_RANGE_MAX);
   } else {
     bst.get_min();
   }
 }
 
-template<typename BST>
-void benchmark_bst(BST& bst1, BST& bst2, const Configuration &config) {
+template <typename BST>
+void benchmark_bst(BST& bst1, BST& bst2, const Configuration& config) {
   /* set up random number generator */
   std::random_device rd;
   std::mt19937 engine(rd());
-  std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN, DATA_VALUE_RANGE_MAX);
+  std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN,
+                                                  DATA_VALUE_RANGE_MAX);
 
   {
     /* prefill list with 1024 elements */
-    for(int i = 0; i < DATA_PREFILL; i++) {
+    for (int i = 0; i < DATA_PREFILL; i++) {
       bst1.insert(uniform_dist(engine));
     }
-    benchmark(config.n_threads, u8"read", [&bst1](int random){
-      bst_lookup(bst1, random);
-    });
-    benchmark(config.n_threads, u8"update", [&bst1](int random){
-      bst_update(bst1, random);
-    });
+    benchmark(config.n_threads, u8"read",
+              [&bst1](int random) { bst_lookup(bst1, random); });
+    benchmark(config.n_threads, u8"update",
+              [&bst1](int random) { bst_update(bst1, random); });
   }
 
   {
     /* prefill list with 1024 elements */
-    for(int i = 0; i < DATA_PREFILL; i++) {
+    for (int i = 0; i < DATA_PREFILL; i++) {
       bst2.insert(uniform_dist(engine));
     }
-    benchmark(config.n_threads, u8"mixed", [&bst2](int random){
-      bst_mixed(bst2, random);
-    });
+    benchmark(config.n_threads, u8"mixed",
+              [&bst2](int random) { bst_mixed(bst2, random); });
   }
 }
 
-void run_benchmarks(const Configuration &config) {
-    switch (config.sync_type) {
+void run_benchmarks(const Configuration& config) {
+  switch (config.sync_type) {
     case Configuration::SyncType::LOCK: {
       switch (config.benchmarking_algorithm) {
-        case Configuration::BenchmarkAlgorithm::MWOBJECT: {} break;
+        case Configuration::BenchmarkAlgorithm::MWOBJECT: {
+        } break;
         case Configuration::BenchmarkAlgorithm::STACK: {
           std::cout << "Benchmark Locking Stack" << std::endl;
           lockbased::Stack<int> stack;
@@ -394,13 +393,20 @@ void run_benchmarks(const Configuration &config) {
     } break;
     case Configuration::SyncType::LOCKFREE: {
       switch (config.benchmarking_algorithm) {
-        case Configuration::BenchmarkAlgorithm::MWOBJECT: {} break;
-        case Configuration::BenchmarkAlgorithm::STACK: {} break;
-        case Configuration::BenchmarkAlgorithm::QUEUE: {} break;
-        case Configuration::BenchmarkAlgorithm::DEQUE: {} break;
-        case Configuration::BenchmarkAlgorithm::SORTEDLIST: {} break;
-        case Configuration::BenchmarkAlgorithm::HASHMAP: {} break;
-        case Configuration::BenchmarkAlgorithm::BST: {} break;
+        case Configuration::BenchmarkAlgorithm::MWOBJECT: {
+        } break;
+        case Configuration::BenchmarkAlgorithm::STACK: {
+        } break;
+        case Configuration::BenchmarkAlgorithm::QUEUE: {
+        } break;
+        case Configuration::BenchmarkAlgorithm::DEQUE: {
+        } break;
+        case Configuration::BenchmarkAlgorithm::SORTEDLIST: {
+        } break;
+        case Configuration::BenchmarkAlgorithm::HASHMAP: {
+        } break;
+        case Configuration::BenchmarkAlgorithm::BST: {
+        } break;
       }
       // TODO
       exit(0);
@@ -445,7 +451,7 @@ void run_benchmarks(const Configuration &config) {
           benchmark_bst(bst1, bst2, config);
         } break;
       }
-    }break;
+    } break;
   }
 
   /*  benchmark_mwobject();
@@ -459,7 +465,7 @@ void run_benchmarks(const Configuration &config) {
   // lockbased::benchmark_queue();
   // lockbased::benchmark_sorted_list();
   // lockbased::benchmark_hashmap();
-  
+
   // lockfree_mcas::benchmark_sorted_list();
   // lockfree_mcas::benchmark_hashmap();
   // lockfree_mcas::benchmark_bst();

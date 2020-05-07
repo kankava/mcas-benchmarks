@@ -60,6 +60,7 @@ void benchmark(int threadcnt, const std::string& identifier, Function fun) {
 	};
 
 	/* start work for 5s */
+    // TODO: run work for t secs from config
 	status = worker_status::work;
 	std::this_thread::sleep_for(std::chrono::seconds(5));
 	status = worker_status::finish;
