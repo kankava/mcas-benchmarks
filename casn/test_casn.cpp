@@ -1,6 +1,6 @@
 #include "casn.h"
-#include "stdio.h"
-#include "stdint.h"
+#include <cstdio>
+#include <cstdint>
 
 void test_get_rdcss_descriptor() {
     printf("Testing GetRDCSSDescriptor:\n");
@@ -88,7 +88,7 @@ void test_casn_par() {
     uint64_t data[] = {0, 1, 2, 3};
 
     #pragma omp parallel for
-    for (int i = 0; i < 10; i++) {
+    for (uint64_t i = 0; i < 10; i++) {
         CASNDescriptor casn_desc = 
             {4, UNDECIDED, {{&data[0], i + 0, i + 1}, 
                             {&data[1], i + 1, i + 2},
@@ -99,14 +99,13 @@ void test_casn_par() {
         casn(&casn_desc);
     }
 
-    printf("%d %d %d %d\n", data[0], data[1], data[2], data[3]);
-
+    printf("%lu %lu %lu %lu\n", data[0], data[1], data[2], data[3]);
 }
 
 int main() {
-    //test_get_rdcss_descriptor();
-    //test_rdcss();
-    //test_casn();
+    test_get_rdcss_descriptor();
+    test_rdcss();
+    test_casn();
     test_casn_par();
     return 0;
 }
