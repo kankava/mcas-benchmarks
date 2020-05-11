@@ -3,10 +3,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-uint64_t cas1(uint64_t *addr1, uint64_t old1, uint64_t new1) {
-  uintptr_t o_t = old1;
-  atomic_compare_exchange_strong(addr1, &o_t, new1);
-  return o_t;
+uint64_t cas1(uint64_t *addr0, uint64_t old0, uint64_t new0) {
+  atomic_compare_exchange_weak(addr0, &old0, new0);
+  return old0;
 }
 
 void complete(RDCSSDescriptor *d);
@@ -25,7 +24,7 @@ uint64_t rdcss(RDCSSDescriptor *d) {
   uint64_t r;
 
   while (true) {
-    r = cas1(d->a2, d->o2, get_rdcss_descriptor_ptr(d));
+    r = cas1((uint64_t *)d->a2, d->o2, get_rdcss_descriptor_ptr(d));
     if (is_rdcss_descriptor(r)) {
       complete(get_rdcss_descriptor(r));
     } else {
@@ -42,19 +41,24 @@ uint64_t rdcss(RDCSSDescriptor *d) {
 
 uint64_t rdcss_read(uint64_t *addr) {
   uint64_t r;
-  do {
+  while (true) {
     r = atomic_load_explicit(addr, memory_order_seq_cst);
-    if (is_rdcss_descriptor(r)) complete(r);
-  } while (is_rdcss_descriptor(r));
+    if (is_rdcss_descriptor(r)) {
+      complete(get_rdcss_descriptor(r));
+    } else {
+      break;
+    }
+  }
+
   return r;
 }
 
 void complete(RDCSSDescriptor *d) {
-  uint64_t a1 = atomic_load_explicit(d->a1, memory_order_seq_cst);
+  uint64_t a1 = (uint64_t)d->a1;
   if (a1 == d->o1) {
-    cas1(d->a2, get_rdcss_descriptor_ptr(d), d->n2);
+    cas1((uint64_t *)d->a2, get_rdcss_descriptor_ptr(d), d->n2);
   } else {
-    cas1(d->a2, get_rdcss_descriptor_ptr(d), d->o2);
+    cas1((uint64_t *)d->a2, get_rdcss_descriptor_ptr(d), d->o2);
   }
 }
 
@@ -69,8 +73,8 @@ CASNDescriptor *get_casn_descriptor(uint64_t ptr) {
 }
 
 bool casn(CASNDescriptor *cd) {
-  if (atomic_load_explicit(&(cd->status), memory_order_seq_cst) == UNDECIDED) {
-  // if (cd->status == UNDECIDED) {
+  // if (atomic_load_explicit(&(cd->status), memory_order_seq_cst) == UNDECIDED) {
+    if (cd->status == UNDECIDED) {
     uint64_t status = SUCCEEDED;
 
     for (int i = 0; i < cd->n_entries && status == SUCCEEDED; i++) {
@@ -96,25 +100,30 @@ bool casn(CASNDescriptor *cd) {
   }
 
   bool success = cd->status == SUCCEEDED;
-  for (int i = 0; i < cd->n_entries; i++) {
+  int n = cd->n_entries;
+  for (int i = 0; i < n; i++) {
     uint64_t new1;
     if (success) {
       new1 = cd->entries[i].New;
     } else {
       new1 = cd->entries[i].Old;
     }
-
-    cas1(cd->entries[i].Address, get_casn_descriptor_ptr(cd), new1);
+    uint64_t *addr0 = cd->entries[i].Address;
+    cas1(addr0, get_casn_descriptor_ptr(cd), new1);
   }
   return success;
 }
 
 uint64_t casn_read(uint64_t *addr) {
   uint64_t r;
-  do {
-    // r = rdcss_read(addr);
-    r = atomic_load_explicit(addr, memory_order_seq_cst);
-    if (is_casn_descriptor(r)) casn((CASNDescriptor *)r);
-  } while (is_casn_descriptor(r));
+  while (true) {
+    r = rdcss_read(addr);
+    // r = atomic_load_explicit(addr, memory_order_seq_cst);
+    if (is_casn_descriptor(r)) {
+      casn((get_casn_descriptor(r)));
+    } else {
+      break;
+    }
+  }
   return r;
 }

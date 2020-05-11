@@ -9,6 +9,7 @@ extern "C" {
 #include "stdbool.h"
 #include "stdint.h"
 #include "stdlib.h"
+#include "stdatomic.h"
 #endif
 
 #define MAX_CASN_ENTRIES 4

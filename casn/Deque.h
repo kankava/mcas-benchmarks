@@ -48,15 +48,15 @@ class Deque {
     new_node->data = data;
 
     while (true) {
-      auto lh = LeftHat;
-      auto lhL = lh->L;
+      Node* lh = reinterpret_cast<Node *> (MCAS_READ(&LeftHat));
+      Node* lhL = reinterpret_cast<Node *>(MCAS_READ(&lh->L));
       if (lhL == lh) {
         new_node->R = dummy;
-        auto rh = RightHat;
+        Node* rh = reinterpret_cast<Node *>(MCAS_READ(&RightHat));
         if (dcas(reinterpret_cast<uint64_t *>(&LeftHat), reinterpret_cast<uint64_t>(lh), reinterpret_cast<uint64_t>(new_node),
                  reinterpret_cast<uint64_t *>(&RightHat), reinterpret_cast<uint64_t>(rh), reinterpret_cast<uint64_t>(new_node))) return;
       } else {
-        new_node->R = lh;
+        new_node->R = reinterpret_cast<Node *>(MCAS_READ(&lh));
         if (dcas(reinterpret_cast<uint64_t *>(&LeftHat), reinterpret_cast<uint64_t>(lh), reinterpret_cast<uint64_t>(new_node),
                  reinterpret_cast<uint64_t *>(&lh->L), reinterpret_cast<uint64_t>(lhL), reinterpret_cast<uint64_t>(new_node))) return;
       }
@@ -70,15 +70,15 @@ class Deque {
     new_node->data = data;
 
     while (true) {
-      auto rh = RightHat;
-      auto rhR = rh->R;
+      Node* rh = reinterpret_cast<Node *>(MCAS_READ(&RightHat));
+      Node* rhR = reinterpret_cast<Node *>(MCAS_READ(&rh->R));
       if (rhR == rh) {
         new_node->L = dummy;
-        auto lh = LeftHat;
+        Node* lh = reinterpret_cast<Node *>(MCAS_READ(&LeftHat));
         if (dcas(reinterpret_cast<uint64_t *>(&RightHat), reinterpret_cast<uint64_t>(rh), reinterpret_cast<uint64_t>(new_node),
                  reinterpret_cast<uint64_t *>(&LeftHat), reinterpret_cast<uint64_t>(lh), reinterpret_cast<uint64_t>(new_node))) return;
       } else {
-        new_node->L = rh;
+        new_node->L = reinterpret_cast<Node *>(MCAS_READ(&rh));
         if (dcas(reinterpret_cast<uint64_t *>(&RightHat), reinterpret_cast<uint64_t>(rh), reinterpret_cast<uint64_t>(new_node),
                  reinterpret_cast<uint64_t *>(&rh->R), reinterpret_cast<uint64_t>(rhR), reinterpret_cast<uint64_t>(new_node))) return;
       }
@@ -88,14 +88,13 @@ class Deque {
   // pop_left
   int pop_front() {
     while (true) {
-      auto lh = LeftHat;
-      auto lhL = lh->L;
-      auto lhR = lh->R;
+      Node* lh = reinterpret_cast<Node *>(MCAS_READ(&LeftHat));
+      Node* lhL = reinterpret_cast<Node *>(MCAS_READ(&(lh->L)));
+      Node* lhR = reinterpret_cast<Node *>(MCAS_READ(&(lh->R)));
 
       if (lhL == lh) {
-        if (LeftHat == lh) return -1;
+        if (reinterpret_cast<Node *>(MCAS_READ(reinterpret_cast<uint64_t *>(&LeftHat))) == lh) return -1;
       } else {
-
         if (tcas(reinterpret_cast<uint64_t *>(&LeftHat), reinterpret_cast<uint64_t>(lh), reinterpret_cast<uint64_t>(lhR),
                  reinterpret_cast<uint64_t *>(&lh->R), reinterpret_cast<uint64_t>(lhR), reinterpret_cast<uint64_t>(lh),
                  reinterpret_cast<uint64_t *>(&lh->L), reinterpret_cast<uint64_t>(lhL), reinterpret_cast<uint64_t>(lh))) {
@@ -109,12 +108,12 @@ class Deque {
   // pop_right
   int pop_back() {
     while (true) {
-      auto rh = RightHat;
-      auto rhL = rh->L;
-      auto rhR = rh->R;
+      Node* rh = reinterpret_cast<Node *>(MCAS_READ(&RightHat));
+      Node* rhL = reinterpret_cast<Node *>(MCAS_READ(&(rh->L)));
+      Node* rhR = reinterpret_cast<Node *>(MCAS_READ(&(rh->R)));
 
       if (rhR == rh) {
-        if (RightHat == rh) return -1;
+        if (reinterpret_cast<Node *>(MCAS_READ(&RightHat)) == rh) return -1;
       } else {
         if (tcas(reinterpret_cast<uint64_t *>(&RightHat), reinterpret_cast<uint64_t>(rh), reinterpret_cast<uint64_t>(rhL),
                  reinterpret_cast<uint64_t *>(&rh->L), reinterpret_cast<uint64_t>(rhL), reinterpret_cast<uint64_t>(rh),
