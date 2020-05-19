@@ -144,6 +144,7 @@ uint64_t qcas(uint64_t* addr0, uint64_t old0, uint64_t new0,
       *addr0 = new0;
       *addr1 = new1;
       *addr2 = new2;
+      *addr3 = new3;
       return true;
     }
     return false;
