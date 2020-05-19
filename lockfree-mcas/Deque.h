@@ -6,142 +6,119 @@
 
 #pragma once
 
-#include <memory>
-#include <mutex>
 #include "../mcas/mcas.h"
 
 namespace lockfree_mcas {
 
-template <typename T>
 class Deque {
  private:
   struct Node {
-    std::shared_ptr<T> data;
-    std::shared_ptr<Node> L;
-    std::shared_ptr<Node> R;
+    int data;
+    Node *L;
+    Node *R;
     Node() = default;
   };
 
-  std::shared_ptr<Node> LeftHat;   // head
-  std::shared_ptr<Node> RightHat;  // tail
-  std::shared_ptr<Node> dummy;
-  std::mutex cas_lock = {};
+  Node *LeftHat;   // head
+  Node *RightHat;  // tail
+  Node *dummy;
 
  public:
   Deque() {
-    dummy = std::make_shared<Node>();
+    dummy = new Node();
     dummy->L = dummy;
     dummy->R = dummy;
     LeftHat = dummy;
     RightHat = dummy;
   }
 
+  ~Deque() {
+    while (true) {
+      int val = pop_back();
+      if (val == -1) break;
+    }
+    delete dummy;
+  }
+
   // push_left
-  void push_front(T const& data) {
-    std::shared_ptr<Node> const new_node = std::make_shared<Node>();
+  void push_front(int const& data) {
+    Node *new_node = new Node();
     new_node->L = dummy;
-    new_node->data = std::make_shared<T>(data);
+    new_node->data = data;
 
     while (true) {
-      auto lh = LeftHat;
-      auto lhL = lh->L;
+      Node* lh = LeftHat;
+      Node* lhL = lh->L;
       if (lhL == lh) {
         new_node->R = dummy;
-        auto rh = RightHat;
-        {
-          std::lock_guard<std::mutex> lock(cas_lock);
-          if (DCAS(&LeftHat, &RightHat, lh, rh, new_node, new_node)) return;
-        }
+        Node* rh = RightHat;
+        if (dcas(reinterpret_cast<uint64_t *>(&LeftHat), reinterpret_cast<uint64_t>(lh), reinterpret_cast<uint64_t>(new_node),
+                 reinterpret_cast<uint64_t *>(&RightHat), reinterpret_cast<uint64_t>(rh), reinterpret_cast<uint64_t>(new_node))) return;
       } else {
         new_node->R = lh;
-        {
-          std::lock_guard<std::mutex> lock(cas_lock);
-          if (DCAS(&LeftHat, &lh->L, lh, lhL, new_node, new_node)) return;
-        }
+        if (dcas(reinterpret_cast<uint64_t *>(&LeftHat), reinterpret_cast<uint64_t>(lh), reinterpret_cast<uint64_t>(new_node),
+                 reinterpret_cast<uint64_t *>(&lh->L), reinterpret_cast<uint64_t>(lhL), reinterpret_cast<uint64_t>(new_node))) return;
       }
     }
   }
 
   // push_right
-  void push_back(T const& data) {
-    std::shared_ptr<Node> const new_node = std::make_shared<Node>();
+  void push_back(int const& data) {
+    Node *new_node = new Node();
     new_node->R = dummy;
-    new_node->data = std::make_shared<T>(data);
+    new_node->data = data;
 
     while (true) {
-      auto rh = RightHat;
-      auto rhR = rh->R;
+      Node* rh = RightHat;
+      Node* rhR = rh->R;
       if (rhR == rh) {
         new_node->L = dummy;
-        auto lh = LeftHat;
-        {
-          std::lock_guard<std::mutex> lock(cas_lock);
-          if (DCAS(&RightHat, &LeftHat, rh, lh, new_node, new_node)) return;
-        }
+        Node* lh = LeftHat;
+        if (dcas(reinterpret_cast<uint64_t *>(&RightHat), reinterpret_cast<uint64_t>(rh), reinterpret_cast<uint64_t>(new_node),
+                 reinterpret_cast<uint64_t *>(&LeftHat), reinterpret_cast<uint64_t>(lh), reinterpret_cast<uint64_t>(new_node))) return;
       } else {
         new_node->L = rh;
-        {
-          std::lock_guard<std::mutex> lock(cas_lock);
-          if (DCAS(&RightHat, &rh->R, rh, rhR, new_node, new_node)) return;
-        }
+        if (dcas(reinterpret_cast<uint64_t *>(&RightHat), reinterpret_cast<uint64_t>(rh), reinterpret_cast<uint64_t>(new_node),
+                 reinterpret_cast<uint64_t *>(&rh->R), reinterpret_cast<uint64_t>(rhR), reinterpret_cast<uint64_t>(new_node))) return;
       }
     }
   }
-
-  /*
-  // buggy
-  std::shared_ptr<T> pop_right() {
-    while (true) {
-      auto rh = RightHat;
-      auto lh = LeftHat;
-      if (rh->R == rh) return nullptr;
-      if (rh == lh) {
-        if (CAS(&RightHat, &LeftHat, rh, lh, Dummy, Dummy)) return rh->data;
-      } else {
-        auto rhL = rh->L;
-        if (CAS(&RightHat, &rh->L, rh, rhL, rhL, rh)) {
-          auto result = rh->data;
-          rh->R = Dummy;
-          return result;
-        }
-      }
-    }
-  }
-  */
 
   // pop_left
-  std::shared_ptr<T> pop_front() {
+  int pop_front() {
     while (true) {
-      auto lh = LeftHat;
-      auto lhL = lh->L;
-      auto lhR = lh->R;
+      Node* lh = LeftHat;
+      Node* lhL = lh->L;
+      Node* lhR = lh->R;
 
       if (lhL == lh) {
-        if (LeftHat == lh) return nullptr;
+        if (LeftHat == lh) return -1;
       } else {
-        {
-          std::lock_guard<std::mutex> lock(cas_lock);
-          if (CAS3(&LeftHat, &lh->R, &lh->L, lh, lhR, lhL, lhR, lh, lh))
-            return lh->data;
+        if (tcas(reinterpret_cast<uint64_t *>(&LeftHat), reinterpret_cast<uint64_t>(lh), reinterpret_cast<uint64_t>(lhR),
+                 reinterpret_cast<uint64_t *>(&lh->R), reinterpret_cast<uint64_t>(lhR), reinterpret_cast<uint64_t>(lh),
+                 reinterpret_cast<uint64_t *>(&lh->L), reinterpret_cast<uint64_t>(lhL), reinterpret_cast<uint64_t>(lh))) {
+          int result = lh->data;
+          return result;
         }
       }
     }
   }
 
   // pop_right
-  std::shared_ptr<T> pop_back() {
+  int pop_back() {
     while (true) {
-      auto rh = RightHat;
-      auto rhL = rh->L;
-      auto rhR = rh->R;
+      Node* rh = RightHat;
+      Node* rhL = rh->L;
+      Node* rhR = rh->R;
 
       if (rhR == rh) {
-        if (RightHat == rh) return nullptr;
+        if (RightHat == rh) return -1;
       } else {
-        {
-          std::lock_guard<std::mutex> lock(cas_lock);
-          if (CAS3(&RightHat, &rh->L, &rh->R, rh, rhL, rhR, rhL, rh, rh))
-            return rh->data;
+        if (tcas(reinterpret_cast<uint64_t *>(&RightHat), reinterpret_cast<uint64_t>(rh), reinterpret_cast<uint64_t>(rhL),
+                 reinterpret_cast<uint64_t *>(&rh->L), reinterpret_cast<uint64_t>(rhL), reinterpret_cast<uint64_t>(rh),
+                 reinterpret_cast<uint64_t *>(&rh->R), reinterpret_cast<uint64_t>(rhR), reinterpret_cast<uint64_t>(rh))) {
+          int result = rh->data;
+          return result;
         }
       }
     }
