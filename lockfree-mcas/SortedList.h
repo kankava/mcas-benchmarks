@@ -29,15 +29,15 @@ class SortedList {
 
     while (true) {
       Node *prev = next->prev;
-      Node *next_next = next->next;
-      Node *prev_next = prev->next;
 
       node->next = next;
       node->prev = prev;
-
-      if (dcas((uint64_t *)&node->prev->next, (uint64_t)node->next,
-               (uint64_t)node, (uint64_t *)&next->prev, (uint64_t)node->prev,
-               (uint64_t)node)) {
+      if (qcas((uint64_t *)&node->prev->next, (uint64_t)node->next, (uint64_t)node,
+               (uint64_t *)&next->prev, (uint64_t)node->prev, (uint64_t)node,
+               (uint64_t *)&node->next, (uint64_t)node->next, (uint64_t)next,
+               (uint64_t *)&node->prev, (uint64_t)node->prev, (uint64_t)prev
+               )
+          ) {
         return;
       }
     }
