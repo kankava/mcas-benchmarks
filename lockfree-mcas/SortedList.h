@@ -1,7 +1,8 @@
-// Greenwald DCAS Based 
+// Greenwald DCAS Based
 
 #pragma once
 
+#include <climits>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -9,110 +10,134 @@
 
 namespace lockfree_mcas {
 
-template <typename T>
 class SortedList {
  private:
   struct Node {
-    std::shared_ptr<T> data;
-    std::shared_ptr<Node> next;
-    std::shared_ptr<Node> prev;
+    int data;
+    Node *next;
+    Node *prev;
     Node() = default;
   };
 
-  std::shared_ptr<Node> head;
-  std::shared_ptr<Node> tail;
-  std::shared_ptr<Node> dummy;
-  std::mutex cas_lock = {};
+  Node *head;
+  Node *tail;
+
+  void insert_before(Node *next, Node *node) {
+    if (next == head) {
+      return insert_after(next, node);
+    }
+
+    while (true) {
+      Node *prev = next->prev;
+      Node *next_next = next->next;
+      Node *prev_next = prev->next;
+
+      node->next = next;
+      node->prev = prev;
+
+      if (dcas((uint64_t *)&node->prev->next, (uint64_t)node->next,
+               (uint64_t)node, (uint64_t *)&next->prev, (uint64_t)node->prev,
+               (uint64_t)node)) {
+        return;
+      }
+    }
+  }
+
+  void insert_after(Node *prev, Node *node) {
+    if (prev == tail) {
+      return insert_before(prev, node);
+    }
+
+    while (true) {
+      Node *next = prev->next;
+
+      node->prev = prev;
+      node->next = next;
+
+      if (dcas((uint64_t *)&prev->next, (uint64_t)node->next, (uint64_t)node,
+               (uint64_t *)&node->next->prev, (uint64_t)node->prev,
+               (uint64_t)node)) {
+        return;
+      }
+    }
+  }
+
+  void delete_node(Node *node) {
+
+    while (true) {
+      if (node == head || node == tail) {
+        break;
+      }
+      Node *prev = node->prev;
+      Node *next = node->next;
+      if (prev->next != node || next->prev != node) {
+        continue;
+      }
+
+      if(dcas((uint64_t*)&prev->next, (uint64_t)node, (uint64_t)next,
+              (uint64_t*)&next->prev, (uint64_t)node, (uint64_t)prev)) {
+        return;
+      }
+    }
+  }
 
  public:
   SortedList() {
-    head = std::make_shared<Node>();
-    tail = std::make_shared<Node>();
-    dummy = std::make_shared<Node>();
+    head = new Node();
+    tail = new Node();
     head->next = tail;
     tail->prev = head;
   }
 
-  void insert(T const& data) {
-    std::shared_ptr<Node> const new_node = std::make_shared<Node>();
-    new_node->data = std::make_shared<T>(data);
-    new_node->next = dummy;
-    new_node->prev = dummy;
+  void insert(int data) {
+    Node *new_node = new Node();
+    new_node->data = data;
+    new_node->next = nullptr;
+    new_node->prev = nullptr;
 
     while (true) {
       auto parent = head;
       auto curr = head->next;
 
-      while (curr != nullptr && curr->data != nullptr && *curr->data < data) {
+      while (curr != tail && curr->data < data) {
         parent = curr;
         curr = curr->next;
       }
-
-      // new_node->next = curr;
-      // new_node->prev = parent;
-      {
-        std::lock_guard<std::mutex> lock(cas_lock);
-        if (CAS4(&parent->next, &curr->prev, &new_node->next, &new_node->prev,
-                  curr, parent, dummy, dummy,
-                  new_node, new_node, curr, parent))
-        // if (DCAS(&parent->next, &curr->prev,
-        //         curr, parent,
-        //         new_node, new_node))
-          return;
-      }
+      insert_before(curr, new_node);
+      return;
     }
   }
 
-  void remove(T const& data) {
-    while (true)
-      while (true) {
-        std::shared_ptr<Node> curr = head->next;
+  void remove(int data) {
+    // while (true) {
+      Node *curr = head->next;
 
-        while (curr != tail && curr->data != nullptr && *curr->data < data) {
-          curr = curr->next;
-        }
-
-        if (curr == tail) return;
-        if (curr->data == nullptr) break;
-        if (*curr->data != data) return;
-
-        auto child = curr->next;
-
-        std::shared_ptr<Node> c_n_prev = curr->next->prev;
-        std::shared_ptr<Node> c_p_next = curr->prev->next;
-
-        {
-          std::lock_guard<std::mutex> lock(cas_lock);
-          if (DCAS(&curr->next->prev, &curr->prev->next,
-                    c_n_prev, c_p_next,
-                    curr->prev, curr->next))
-            return;
-        }
-      }
-  }
-
-  int count(T val) {
-    int n_val = 0;
-
-    while (true) {
-      auto curr = head->next;
-      n_val = 0;
-
-      while (curr != tail && curr->data != nullptr) {
-        if (*curr->data == val) n_val++;
+      while (curr != tail && curr->data < data) {
         curr = curr->next;
       }
-      if (curr == tail) break;
+
+      if (curr == tail) return;
+      if (curr->data != data) return;
+
+      return delete_node(curr);
+  }
+
+  int count(int val) {
+    int n_val = 0;
+    auto curr = head->next;
+
+    while (curr != tail) {
+      if (curr->data == val) n_val++;
+      curr = curr->next;
     }
     return n_val;
   }
 
-  // for testing, not safe
   void print_all() {
     auto curr = head->next;
 
     while (curr != tail) {
-      std::cout << *curr->data << " ";
+      std::cout << curr->data << " ";
       curr = curr->next;
     }
     std::cout << std::endl;
