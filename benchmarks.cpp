@@ -22,7 +22,7 @@
 
 static const int DATA_VALUE_RANGE_MIN = 0;
 static const int DATA_VALUE_RANGE_MAX = 256;
-static const int DATA_PREFILL = 512;
+static const int DATA_PREFILL = 1024;
 
 void benchmark_mwobject(const Configuration& config) {
   struct {
@@ -40,6 +40,9 @@ void benchmark_mwobject(const Configuration& config) {
   std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN,
                                                   DATA_VALUE_RANGE_MAX);
 
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_roi_begin();
+#endif
   {
     benchmark(config.n_threads, config.n_ops, u8"Update", [&counters, &cas_lock](int random) {
       while (true) {
@@ -63,6 +66,10 @@ void benchmark_mwobject(const Configuration& config) {
       }
     });
   }
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_roi_end();
+#endif
+
 }
 
 template <typename Deque>
@@ -73,6 +80,9 @@ void benchmark_deque(Deque& deque, const Configuration& config) {
   std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN,
                                                   DATA_VALUE_RANGE_MAX);
 
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_roi_begin();
+#endif
   {
     // prefill deque with 1024 elements
     for (int i = 0; i < DATA_PREFILL; i++) {
@@ -99,6 +109,10 @@ void benchmark_deque(Deque& deque, const Configuration& config) {
       }
     });
   }
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_roi_end();
+#endif
+
 }
 
 template <typename Stack>
@@ -109,6 +123,9 @@ void benchmark_stack(Stack& stack, const Configuration& config) {
   std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN,
                                                   DATA_VALUE_RANGE_MAX);
 
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_roi_begin();
+#endif
   {
     // prefill stack with 1024 elements
     for (int i = 0; i < DATA_PREFILL; i++) {
@@ -126,6 +143,10 @@ void benchmark_stack(Stack& stack, const Configuration& config) {
       }
     });
   }
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_roi_end();
+#endif
+
 }
 
 template <typename Queue>
@@ -136,6 +157,9 @@ void benchmark_queue(Queue& queue, const Configuration& config) {
   std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN,
                                                   DATA_VALUE_RANGE_MAX);
 
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_roi_begin();
+#endif
   {
     // prefill queue with 1024 elements
     for (int i = 0; i < DATA_PREFILL; i++) {
@@ -153,11 +177,15 @@ void benchmark_queue(Queue& queue, const Configuration& config) {
       }
     });
   }
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_roi_end();
+#endif
+
 }
 
 template <typename List>
 void read(List& l, int random) {
-  /* read operations: 100% count */
+  /* read operations: 100% read */
   l.count(random % DATA_VALUE_RANGE_MAX);
 }
 
@@ -174,8 +202,8 @@ void update(List& l, int random) {
 
 template <typename List>
 void mixed(List& l, int random) {
-  /* mixed operations: 6.25% update, 93.75% count */
-  auto choice = (random % (32 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
+  /* mixed operations: 20% update, 80% read */
+  auto choice = (random % (10 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
   if (choice == 0) {
     l.insert(random % DATA_VALUE_RANGE_MAX);
   } else if (choice == 1) {
@@ -194,7 +222,11 @@ void benchmark_sorted_list(List& list1, List& list2,
   std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN,
                                                   DATA_VALUE_RANGE_MAX);
 
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_roi_begin();
+#endif
   {
+
     /* prefill list with 1024 elements */
     for (int i = 0; i < DATA_PREFILL; i++) {
       list1.insert(uniform_dist(engine));
@@ -212,11 +244,15 @@ void benchmark_sorted_list(List& list1, List& list2,
     }
     benchmark(config.n_threads, config.n_ops, u8"mixed", [&list2](int random) { mixed(list2, random); });
   }
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_roi_end();
+#endif
+
 }
 
 template <typename HashMap>
 void hm_lookup(HashMap& map, int random) {
-  /* read operations: 100% count */
+  /* read operations: 100% read */
   map.contains(random % DATA_VALUE_RANGE_MAX);
 }
 
@@ -234,8 +270,8 @@ void hm_update(HashMap& map, int random) {
 
 template <typename HashMap>
 void hm_mixed(HashMap& map, int random) {
-  /* mixed operations: 6.25% update, 93.75% count */
-  auto choice = (random % (32 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
+  /* mixed operations: 20% update, 80% read */
+  auto choice = (random % (10 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
   if (choice == 0) {
     map.insert_or_assign(random % DATA_VALUE_RANGE_MAX,
                          random % DATA_VALUE_RANGE_MAX);
@@ -255,6 +291,9 @@ void benchmark_hashmap(HashMap& map1, HashMap& map2,
   std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN,
                                                   DATA_VALUE_RANGE_MAX);
 
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_roi_begin();
+#endif
   {
     /* prefill list with 1024 elements */
     for (int i = 0; i < DATA_PREFILL; i++) {
@@ -274,11 +313,15 @@ void benchmark_hashmap(HashMap& map1, HashMap& map2,
     benchmark(config.n_threads, config.n_ops, u8"mixed",
               [&map2](int random) { hm_mixed(map2, random); });
   }
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_roi_end();
+#endif
+
 }
 
 template <typename BST>
 void bst_lookup(BST& bst, int random) {
-  /* read operations: 100% count */
+  /* read operations: 100% read */
   bst.get_min();
 }
 
@@ -295,8 +338,8 @@ void bst_update(BST& bst, int random) {
 
 template <typename BST>
 void bst_mixed(BST& bst, int random) {
-  /* mixed operations: 6.25% update, 93.75% count */
-  auto choice = (random % (32 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
+  /* mixed operations: 20% update, 80% read */
+  auto choice = (random % (10 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
   if (choice == 0) {
     bst.insert(random % DATA_VALUE_RANGE_MAX);
   } else if (choice == 1) {
@@ -314,6 +357,9 @@ void benchmark_bst(BST& bst1, BST& bst2, const Configuration& config) {
   std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN,
                                                   DATA_VALUE_RANGE_MAX);
 
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_roi_begin();
+#endif
   {
     /* prefill list with 1024 elements */
     for (int i = 0; i < DATA_PREFILL; i++) {
@@ -333,6 +379,10 @@ void benchmark_bst(BST& bst1, BST& bst2, const Configuration& config) {
     benchmark(config.n_threads, config.n_ops, u8"mixed",
               [&bst2](int random) { bst_mixed(bst2, random); });
   }
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_roi_end();
+#endif
+
 }
 
 void run_benchmarks(const Configuration& config) {
@@ -383,6 +433,7 @@ void run_benchmarks(const Configuration& config) {
     case Configuration::SyncType::LOCKFREE: {
       switch (config.benchmarking_algorithm) {
         case Configuration::BenchmarkAlgorithm::MWOBJECT: {
+          std::cerr << "MWOBJECT not implemented for lock-free" << std::endl;
         } break;
         case Configuration::BenchmarkAlgorithm::STACK: {
         } break;
