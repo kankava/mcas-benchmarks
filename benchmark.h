@@ -19,63 +19,69 @@ static const int RANDOM_VALUE_RANGE_MAX = 65536;
 
 /* template is used to allow functions/functors of any signature */
 template<typename Function>
-void worker(unsigned int random_seed, double& ops_per_sec, std::atomic<worker_status>* status, Function fun) {
-	/* set up random number generator */
-	std::mt19937 engine(random_seed);
-	std::uniform_int_distribution<int> uniform_dist(RANDOM_VALUE_RANGE_MIN, RANDOM_VALUE_RANGE_MAX);
-	/* for time measurements */
-	typedef std::chrono::high_resolution_clock clock;
-	/* wait for everyone to be allowed to start */
-	while(*status == worker_status::wait);
-	std::chrono::time_point<clock> start_time = clock::now();
-	long items = 0;
-	while(*status == worker_status::work) {
-		auto random = uniform_dist(engine);
-		/* do specified work */
-		fun(random);
-		items++;
-	}
-	std::chrono::time_point<clock> end_time = clock::now();
-	double time = std::chrono::duration<double, std::ratio<1, 1000>>(end_time - start_time).count();
-	ops_per_sec = (double) items / time;
-	std::this_thread::sleep_for(std::chrono::seconds(1));	
+void worker(unsigned int random_seed, double& time,
+            unsigned int n_ops, Function fun) {
+  /* set up random number generator */
+  std::mt19937 engine(random_seed);
+  std::uniform_int_distribution<int> uniform_dist(RANDOM_VALUE_RANGE_MIN, RANDOM_VALUE_RANGE_MAX);
+  /* for time measurements */
+  typedef std::chrono::high_resolution_clock clock;
+  std::chrono::time_point<clock> start_time = clock::now();
+
+  for (unsigned int i = 0; i < n_ops; i++) {
+    auto random = uniform_dist(engine);
+    /* do specified work */
+    fun(random);
+  }
+
+  std::chrono::time_point<clock> end_time = clock::now();
+  time = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
 }
 
 
 template<typename Function>
-void benchmark(int threadcnt, const std::string& identifier, Function fun) {
-	/* initialize worker status */
-	std::atomic<worker_status> status{};
-	status = worker_status::wait;
+void benchmark(unsigned int threadcnt, unsigned int n_ops,
+               const std::string& identifier, Function fun) {
+  /* spawn workers */
+  std::vector<double> times(threadcnt);
+  std::vector<std::thread*> workers;
+  std::random_device rd;
+  for(unsigned int i = 0; i < threadcnt-1; i++) {
+    auto seed = rd();
+    auto& t = times[i];
+    auto w = new std::thread([seed, &t, n_ops, fun]() { worker(seed, t, n_ops, fun); });
+    workers.push_back(w);
+    // set thread affinity for workers
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(i+1, &cpuset);
+    pthread_setaffinity_np(workers[i]->native_handle(), sizeof(cpu_set_t), &cpuset);
+  };
 
-	/* spawn workers */
-	std::vector<double> ops_per_second(threadcnt);
-	std::vector<std::thread*> workers;
-	std::random_device rd;
-	for(int i = 0; i < threadcnt; i++) {
-		auto seed = rd();
-		auto& result = ops_per_second[i];
-		auto w = new std::thread([seed, &result, &status, fun]() { worker(seed, result, &status, fun); });
-		workers.push_back(w);
-	};
+  // set thread affinity for main thread
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);
+  CPU_SET(0, &cpuset);
+  pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 
-	/* start work for 5s */
-    // TODO: run work for t secs from config
-	status = worker_status::work;
-	std::this_thread::sleep_for(std::chrono::seconds(5));
-	status = worker_status::finish;
+  auto& main_thread_time = times[0];
+  worker(rd(), main_thread_time, n_ops, fun);
 
-	/* make sure all workers terminated */
-	for(auto& w : workers) {
-		w->join();
-		delete w;
-	}
-	workers.clear();
+  /* make sure all workers terminated */
+  for(auto& w : workers) {
+    w->join();
+    delete w;
+  }
+  workers.clear();
 
-	/* compute sum of partial results */
-	double result = 0.0;
-	for(auto& v : ops_per_second) {
-		result += v;
-	}
-	std::cout << identifier << std::endl << u8"\tthreads: " << threadcnt << u8" - ops/second: " << std::fixed << result << "\n";
+  /* compute sum of partial results */
+  double result = 0.0;
+  for(auto& v : times) {
+    result += v;
+  }
+
+  result = result / threadcnt;
+  std::cout << identifier << std::endl << u8"\tthreads: " << threadcnt
+            << u8" - ops: " << n_ops
+            << u8" - time: "<< std::fixed << result << "\n";
 }

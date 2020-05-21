@@ -25,15 +25,15 @@ public:
     sync_type = SYNC_UNDEF;
     benchmarking_algorithm = ALG_UNDEF;
     n_iter = 1;
-    time = 1;
+    n_ops = 100;
     debug = false;
   };
 
   SyncType sync_type;
   BenchmarkAlgorithm benchmarking_algorithm;
-  int n_threads;
-  int n_iter;
-  int time;
+  unsigned int n_threads;
+  unsigned int n_iter;
+  unsigned int n_ops;
   bool debug;
   static const Configuration default_conf;
 };

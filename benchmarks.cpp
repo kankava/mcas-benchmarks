@@ -7,6 +7,11 @@
 #include "lockbased/Queue.h"
 #include "lockbased/SortedList.h"
 #include "lockbased/Stack.h"
+#include "lockbased/BinarySearchTree.h"
+
+#include "lockfree/BinarySearchTree.h"
+#include "lockfree/SortedList.h"
+#include "lockfree/HashMap.h"
 
 #include "lockfree-mcas/BinarySearchTree.h"
 #include "lockfree-mcas/Deque.h"
@@ -21,10 +26,10 @@ static const int DATA_PREFILL = 512;
 
 void benchmark_mwobject(const Configuration& config) {
   struct {
-    int a;
-    int b;
-    int c;
-    int d;
+    uint64_t a;
+    uint64_t b;
+    uint64_t c;
+    uint64_t d;
   } counters{};
 
   std::mutex cas_lock = {};
@@ -36,47 +41,24 @@ void benchmark_mwobject(const Configuration& config) {
                                                   DATA_VALUE_RANGE_MAX);
 
   {
-    benchmark(config.n_threads, u8"Update", [&counters, &cas_lock](int random) {
-      auto choice =
-          (random % (2 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
-      if (choice == 0) {
-        while (true) {
-          int old_a = counters.a;
-          int old_b = counters.b;
-          int old_c = counters.c;
-          int old_d = counters.d;
+    benchmark(config.n_threads, config.n_ops, u8"Update", [&counters, &cas_lock](int random) {
+      while (true) {
+        uint64_t old_a = counters.a;
+        uint64_t old_b = counters.b;
+        uint64_t old_c = counters.c;
+        uint64_t old_d = counters.d;
 
-          int new_a = old_a + 1;
-          int new_b = old_b + 1;
-          int new_c = old_c + 1;
-          int new_d = old_d + 1;
+        uint64_t new_a = old_a + 1;
+        uint64_t new_b = old_b + 1;
+        uint64_t new_c = old_c + 1;
+        uint64_t new_d = old_d + 1;
 
-          {
-            std::lock_guard<std::mutex> lock(cas_lock);
-            if (CAS(&counters.a, &counters.b, &counters.c, &counters.d,
-                     old_a, old_b, old_c, old_d,
-                     new_a, new_b, new_c, new_d))
-              break;
-          }
-        }
-      } else {
-        while (true) {
-          int old_a = counters.a;
-          int old_b = counters.b;
-          int old_c = counters.c;
-          int old_d = counters.d;
-
-          int new_a = old_a - 1;
-          int new_b = old_b - 1;
-          int new_c = old_c - 1;
-          int new_d = old_d - 1;
-
-          {
-            std::lock_guard<std::mutex> lock(cas_lock);
-            if (CAS(&counters.a, &counters.b, &counters.c, &counters.d, old_a,
-                    old_b, old_c, old_d, new_a, new_b, new_c, new_d))
-              break;
-          }
+        {
+          if (qcas(reinterpret_cast<uint64_t*>(&counters.a), old_a, new_a,
+                   reinterpret_cast<uint64_t*>(&counters.b), old_b, new_b,
+                   reinterpret_cast<uint64_t*>(&counters.c), old_c, new_c,
+                   reinterpret_cast<uint64_t*>(&counters.d), old_d, new_d))
+            break;
         }
       }
     });
@@ -97,7 +79,7 @@ void benchmark_deque(Deque& deque, const Configuration& config) {
       deque.push_back(uniform_dist(engine));
     }
 
-    benchmark(config.n_threads, u8"update", [&deque](int random) {
+    benchmark(config.n_threads, config.n_ops, u8"update", [&deque](int random) {
       auto choice1 =
           (random % (2 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
       auto choice2 =
@@ -133,7 +115,7 @@ void benchmark_stack(Stack& stack, const Configuration& config) {
       stack.push(uniform_dist(engine));
     }
 
-    benchmark(config.n_threads, u8"update", [&stack](int random) {
+    benchmark(config.n_threads, config.n_ops, u8"update", [&stack](int random) {
       auto choice =
           (random % (2 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
       if (choice == 0) {
@@ -160,7 +142,7 @@ void benchmark_queue(Queue& queue, const Configuration& config) {
       queue.push(uniform_dist(engine));
     }
 
-    benchmark(config.n_threads, u8"update", [&queue](int random) {
+    benchmark(config.n_threads, config.n_ops, u8"update", [&queue](int random) {
       auto choice =
           (random % (2 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
       if (choice == 0) {
@@ -217,9 +199,9 @@ void benchmark_sorted_list(List& list1, List& list2,
     for (int i = 0; i < DATA_PREFILL; i++) {
       list1.insert(uniform_dist(engine));
     }
-    benchmark(config.n_threads, u8"read",
+    benchmark(config.n_threads, config.n_ops, u8"read",
               [&list1](int random) { read(list1, random); });
-    benchmark(config.n_threads, u8"update",
+    benchmark(config.n_threads, config.n_ops, u8"update",
               [&list1](int random) { update(list1, random); });
   }
 
@@ -228,7 +210,7 @@ void benchmark_sorted_list(List& list1, List& list2,
     for (int i = 0; i < DATA_PREFILL; i++) {
       list2.insert(uniform_dist(engine));
     }
-    benchmark(6, u8"mixed", [&list2](int random) { mixed(list2, random); });
+    benchmark(config.n_threads, config.n_ops, u8"mixed", [&list2](int random) { mixed(list2, random); });
   }
 }
 
@@ -278,9 +260,9 @@ void benchmark_hashmap(HashMap& map1, HashMap& map2,
     for (int i = 0; i < DATA_PREFILL; i++) {
       map1.insert_or_assign(uniform_dist(engine), uniform_dist(engine));
     }
-    benchmark(config.n_threads, u8"read",
+    benchmark(config.n_threads, config.n_ops, u8"read",
               [&map1](int random) { hm_lookup(map1, random); });
-    benchmark(config.n_threads, u8"update",
+    benchmark(config.n_threads, config.n_ops, u8"update",
               [&map1](int random) { hm_update(map1, random); });
   }
 
@@ -289,7 +271,7 @@ void benchmark_hashmap(HashMap& map1, HashMap& map2,
     for (int i = 0; i < DATA_PREFILL; i++) {
       map2.insert_or_assign(uniform_dist(engine), uniform_dist(engine));
     }
-    benchmark(config.n_threads, u8"mixed",
+    benchmark(config.n_threads, config.n_ops, u8"mixed",
               [&map2](int random) { hm_mixed(map2, random); });
   }
 }
@@ -337,9 +319,9 @@ void benchmark_bst(BST& bst1, BST& bst2, const Configuration& config) {
     for (int i = 0; i < DATA_PREFILL; i++) {
       bst1.insert(uniform_dist(engine));
     }
-    benchmark(config.n_threads, u8"read",
+    benchmark(config.n_threads, config.n_ops, u8"read",
               [&bst1](int random) { bst_lookup(bst1, random); });
-    benchmark(config.n_threads, u8"update",
+    benchmark(config.n_threads, config.n_ops, u8"update",
               [&bst1](int random) { bst_update(bst1, random); });
   }
 
@@ -348,7 +330,7 @@ void benchmark_bst(BST& bst1, BST& bst2, const Configuration& config) {
     for (int i = 0; i < DATA_PREFILL; i++) {
       bst2.insert(uniform_dist(engine));
     }
-    benchmark(config.n_threads, u8"mixed",
+    benchmark(config.n_threads, config.n_ops, u8"mixed",
               [&bst2](int random) { bst_mixed(bst2, random); });
   }
 }
@@ -387,7 +369,14 @@ void run_benchmarks(const Configuration& config) {
           benchmark_hashmap(map1, map2, config);
         } break;
         case Configuration::BenchmarkAlgorithm::BST: {
-          std::cout << "TODO: Benchmark Locking BST" << std::endl;
+          std::cout << "Benchmark Locking BST" << std::endl;
+          lockbased::BinarySearchTree bst1;
+          lockbased::BinarySearchTree bst2;
+          benchmark_bst(bst1, bst2, config);
+        } break;
+        case Configuration::ALG_UNDEF: {
+          std::cerr << "ALG_UNDEF" << std::endl;
+          exit(0);
         } break;
       }
     } break;
@@ -400,16 +389,30 @@ void run_benchmarks(const Configuration& config) {
         case Configuration::BenchmarkAlgorithm::QUEUE: {
         } break;
         case Configuration::BenchmarkAlgorithm::DEQUE: {
+
         } break;
         case Configuration::BenchmarkAlgorithm::SORTEDLIST: {
+          lockfree::SortedList list1;
+          lockfree::SortedList list2;
+          benchmark_sorted_list(list1, list2, config);
         } break;
         case Configuration::BenchmarkAlgorithm::HASHMAP: {
+          std::cout << "Benchmark Lock-Free HashMap" << std::endl;
+          lockfree::HashMap map1;
+          lockfree::HashMap map2;
+          benchmark_hashmap(map1, map2, config);
         } break;
         case Configuration::BenchmarkAlgorithm::BST: {
+          std::cout << "Benchmark Lock-Free BST" << std::endl;
+          lockfree::BinarySearchTree bst1;
+          // lockfree::BinarySearchTree bst2;
+          benchmark_bst(bst1, bst1, config);
+        } break;
+        case Configuration::ALG_UNDEF: {
+          std::cerr << "ALG_UNDEF" << std::endl;
+          exit(0);
         } break;
       }
-      // TODO
-      exit(0);
     } break;
     case Configuration::SyncType::LOCKFREE_MCAS: {
       switch (config.benchmarking_algorithm) {
@@ -429,28 +432,36 @@ void run_benchmarks(const Configuration& config) {
         } break;
         case Configuration::BenchmarkAlgorithm::DEQUE: {
           std::cout << "Benchmark Lock-Free MCAS Deque" << std::endl;
-          lockfree_mcas::Deque<int> deque;
+          lockfree_mcas::Deque deque;
           benchmark_deque(deque, config);
         } break;
         case Configuration::BenchmarkAlgorithm::SORTEDLIST: {
           std::cout << "Benchmark Lock-Free MCAS Sorted List" << std::endl;
-          lockfree_mcas::SortedList<int> list1;
-          lockfree_mcas::SortedList<int> list2;
+          lockfree_mcas::SortedList list1;
+          lockfree_mcas::SortedList list2;
           benchmark_sorted_list(list1, list2, config);
         } break;
         case Configuration::BenchmarkAlgorithm::HASHMAP: {
           std::cout << "Benchmark Lock-Free MCAS HashMap" << std::endl;
-          lockfree_mcas::HashMap<int, int> map1;
-          lockfree_mcas::HashMap<int, int> map2;
+          lockfree_mcas::HashMap map1;
+          lockfree_mcas::HashMap map2;
           benchmark_hashmap(map1, map2, config);
         } break;
         case Configuration::BenchmarkAlgorithm::BST: {
           std::cout << "Benchmark Lock-Free MCAS BST" << std::endl;
-          lockfree_mcas::BinarySearchTree<int> bst1;
-          lockfree_mcas::BinarySearchTree<int> bst2;
+          lockfree_mcas::BinarySearchTree bst1;
+          lockfree_mcas::BinarySearchTree bst2;
           benchmark_bst(bst1, bst2, config);
         } break;
+        case Configuration::ALG_UNDEF: {
+          std::cerr << "ALG_UNDEF" << std::endl;
+          exit(0);
+        } break;
       }
+    } break;
+    case Configuration::SYNC_UNDEF: {
+      std::cerr << "SYNC_UNDEF" << std::endl;
+      exit(0);
     } break;
   }
 

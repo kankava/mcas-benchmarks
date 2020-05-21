@@ -1,17 +1,26 @@
 #include <iostream>
+
+#ifdef ENABLE_PARSEC_HOOKS
+#include <hooks.h>
+#endif
+
 #include "benchmarks.h"
 #include "configuration.h"
 #include "cxxopts.hpp"
 
 int main(int argc, char *argv[])
 {
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_bench_begin (__splash2_barnes);
+#endif
+
   // parse options
   cxxopts::Options options("mcas_benchmark", "A brief description");
 
   options.add_options()
       ("n,nthreads", "Number of threads", cxxopts::value<int>()->default_value("1"))
       ("i,iter", "Number of iterations", cxxopts::value<int>()->default_value("1"))
-      ("t,time", "Duration of benchmark in sec", cxxopts::value<int>()->default_value("1"))
+      ("o,ops", "Number of operations per thread", cxxopts::value<int>()->default_value("100"))
       ("s,sync", "Synchronization type: lock, lockfree, lockfree-mcas", cxxopts::value<std::string>())
       ("a,algorithm", "Benchmark algorithm: mwobject, stack, queue, deque, sorted-list, hashmap, bst", cxxopts::value<std::string>())
       ("d,debug", "Enable debugging", cxxopts::value<bool>()->default_value("false"))
@@ -32,7 +41,7 @@ int main(int argc, char *argv[])
   conf.debug = result["debug"].as<bool>();
   conf.n_threads = result["nthreads"].as<int>();
   conf.n_iter = result["iter"].as<int>();
-  conf.time = result["time"].as<int>();
+  conf.n_ops = result["ops"].as<int>();
   conf.sync_type = Configuration::SyncType::SYNC_UNDEF;
   conf.benchmarking_algorithm = Configuration::BenchmarkAlgorithm::ALG_UNDEF;
 
@@ -69,9 +78,9 @@ int main(int argc, char *argv[])
   if (conf.debug) {
     std::cout << "configuration:" << std::endl
               << "debug = " << conf.debug << std::endl
-              << "n iter = " << conf.n_iter << std::endl
-              << "n threads = " << conf.n_threads << std::endl
-              << "time = " << conf.time << std::endl
+              << "n_iter = " << conf.n_iter << std::endl
+              << "n_threads = " << conf.n_threads << std::endl
+              << "n_ops = " << conf.n_ops << std::endl
               << "type = " << conf.sync_type << std::endl
               << "algorithm = " << conf.benchmarking_algorithm << std::endl;
   }
@@ -80,5 +89,8 @@ int main(int argc, char *argv[])
   run_benchmarks(conf);
   std::cout << "MCAS Benchmarks finished" << std::endl;
 
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_bench_end();
+#endif
   return 0;
 }
