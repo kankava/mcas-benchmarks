@@ -1,3 +1,7 @@
+#ifdef ENABLE_PARSEC_HOOKS
+#include <hooks.h>
+#endif
+
 #include "benchmarks.h"
 #include "benchmark.h"
 #include "configuration.h"
