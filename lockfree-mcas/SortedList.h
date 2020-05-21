@@ -22,63 +22,61 @@ class SortedList {
   Node *head;
   Node *tail;
 
-  void insert_before(Node *next, Node *node) {
+  bool insert_before(Node *next, Node *node) {
     if (next == head) {
       return insert_after(next, node);
     }
 
-    while (true) {
-      Node *prev = next->prev;
+    Node *prev = next->prev;
 
-      node->next = next;
-      node->prev = prev;
-      if (qcas((uint64_t *)&node->prev->next, (uint64_t)node->next, (uint64_t)node,
-               (uint64_t *)&next->prev, (uint64_t)node->prev, (uint64_t)node,
-               (uint64_t *)&node->next, (uint64_t)node->next, (uint64_t)next,
-               (uint64_t *)&node->prev, (uint64_t)node->prev, (uint64_t)prev
-               )
-          ) {
-        return;
-      }
+    node->next = next;
+    node->prev = prev;
+    if (qcas((uint64_t *)&node->prev->next, (uint64_t)node->next, (uint64_t)node,
+             (uint64_t *)&next->prev, (uint64_t)node->prev, (uint64_t)node,
+             (uint64_t *)&node->next, (uint64_t)node->next, (uint64_t)next,
+             (uint64_t *)&node->prev, (uint64_t)node->prev, (uint64_t)prev
+             )
+        ) {
+      return true;
+    } else {
+      return false;
     }
   }
 
-  void insert_after(Node *prev, Node *node) {
+  bool insert_after(Node *prev, Node *node) {
     if (prev == tail) {
       return insert_before(prev, node);
     }
 
-    while (true) {
-      Node *next = prev->next;
+    Node *next = prev->next;
 
-      node->prev = prev;
-      node->next = next;
-
-      if (dcas((uint64_t *)&prev->next, (uint64_t)node->next, (uint64_t)node,
-               (uint64_t *)&node->next->prev, (uint64_t)node->prev,
-               (uint64_t)node)) {
-        return;
-      }
+    node->prev = prev;
+    node->next = next;
+    if (qcas((uint64_t *)&prev->next, (uint64_t)node->next, (uint64_t)node,
+             (uint64_t *)&node->next->prev, (uint64_t)node->prev, (uint64_t)node,
+             (uint64_t *)&node->next, (uint64_t)node->next, (uint64_t)next,
+             (uint64_t *)&node->prev, (uint64_t)node->prev, (uint64_t)prev
+             )
+        ) {
+      return true;
+    } else {
+      return false;
     }
   }
 
-  void delete_node(Node *node) {
-
-    while (true) {
+  bool delete_node(Node *node) {
       if (node == head || node == tail) {
-        break;
+        return true;
       }
       Node *prev = node->prev;
       Node *next = node->next;
-      if (prev->next != node || next->prev != node) {
-        continue;
-      }
 
       if(dcas((uint64_t*)&prev->next, (uint64_t)node, (uint64_t)next,
               (uint64_t*)&next->prev, (uint64_t)node, (uint64_t)prev)) {
-        return;
+        return true;
+      } else {
+        return false;
       }
-    }
   }
 
  public:
@@ -96,20 +94,16 @@ class SortedList {
     new_node->prev = nullptr;
 
     while (true) {
-      auto parent = head;
       auto curr = head->next;
 
       while (curr != tail && curr->data < data) {
-        parent = curr;
         curr = curr->next;
       }
-      insert_before(curr, new_node);
-      return;
+      if (insert_before(curr, new_node)) return;
     }
   }
 
   void remove(int data) {
-    // while (true) {
       Node *curr = head->next;
 
       while (curr != tail && curr->data < data) {
@@ -119,7 +113,7 @@ class SortedList {
       if (curr == tail) return;
       if (curr->data != data) return;
 
-      return delete_node(curr);
+      delete_node(curr);
   }
 
   int count(int val) {
