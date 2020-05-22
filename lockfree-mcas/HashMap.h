@@ -1,133 +1,208 @@
 #pragma once
 
-#include <memory>
-#include <mutex>
+#include <climits>
+#include "../mcas/mcas.h"
 
 #define TABLE_SIZE 10000
 
 namespace lockfree_mcas {
 
-template <typename Key, typename Value>
 class HashMap {
  private:
   struct Node {
-    std::shared_ptr<Key> key;
-    std::shared_ptr<Value> value;
-    std::shared_ptr<Node> next;
-    std::shared_ptr<Node> prev;
+    long key;
+    long value;
+    Node *next;
+    Node *prev;
     Node() = default;
   };
 
-  std::shared_ptr<Node> bucket_heads[TABLE_SIZE];
-  std::shared_ptr<Node> bucket_tails[TABLE_SIZE];
-  std::shared_ptr<Node> dummy;
-  std::mutex cas_lock = {};
+  Node *bucket_heads[TABLE_SIZE];
+  Node *bucket_tails[TABLE_SIZE];
+
+  bool insert_before(Node *next, Node *node) {
+    unsigned long index = std::hash<int>{}(node->key) % TABLE_SIZE;
+    Node *head = bucket_heads[index];
+    Node *tail = bucket_tails[index];
+
+    if (next == head) {
+      return insert_after(next, node);
+    }
+
+    if ((next->prev == nullptr) ||
+        ((next->next == nullptr) && next != tail)) {
+      return false;
+    }
+
+    Node *prev = next->prev;
+
+    node->next = next;
+    node->prev = prev;
+    if (qcas((uint64_t *)&node->prev->next, (uint64_t)node->next, (uint64_t)node,
+             (uint64_t *)&next->prev, (uint64_t)node->prev, (uint64_t)node,
+             (uint64_t *)&node->next, (uint64_t)node->next, (uint64_t)next,
+             (uint64_t *)&node->prev, (uint64_t)node->prev, (uint64_t)prev
+    )
+        ) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  bool insert_after(Node *prev, Node *node) {
+    unsigned long index = std::hash<long>{}(node->key) % TABLE_SIZE;
+    Node *head = bucket_heads[index];
+    Node *tail = bucket_tails[index];
+
+    if (prev == tail) {
+      return insert_before(prev, node);
+    }
+
+    if ((prev->next == nullptr) ||
+        ((prev->prev == nullptr) && prev != head)) {
+      return false;
+    }
+
+    Node *next = prev->next;
+
+    node->prev = prev;
+    node->next = next;
+    if (qcas((uint64_t *)&prev->next, (uint64_t)node->next, (uint64_t)node,
+             (uint64_t *)&node->next->prev, (uint64_t)node->prev, (uint64_t)node,
+             (uint64_t *)&node->next, (uint64_t)node->next, (uint64_t)next,
+             (uint64_t *)&node->prev, (uint64_t)node->prev, (uint64_t)prev
+    )
+        ) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  bool delete_node(Node *node) {
+    unsigned long index = std::hash<long>{}(node->key) % TABLE_SIZE;
+    Node *head = bucket_heads[index];
+    Node *tail = bucket_tails[index];
+
+    if (node == head || node == tail) {
+      return true;
+    }
+    Node *prev = node->prev;
+    Node *next = node->next;
+    Node *tmp = nullptr;
+
+    if ((prev == nullptr) && (next == nullptr)) return false; // was already deleted
+
+    if(qcas((uint64_t*)&prev->next, (uint64_t)node, (uint64_t)next,
+            (uint64_t*)&next->prev, (uint64_t)node, (uint64_t)prev,
+            (uint64_t*)&node->next, (uint64_t)next, (uint64_t)tmp,
+            (uint64_t*)&node->prev, (uint64_t)prev, (uint64_t)tmp)
+        ) {
+      return true;
+    } else {
+      return false;
+    }
+  }
 
  public:
   HashMap() {
     for (int i = 0; i < TABLE_SIZE; i++) {
-      bucket_heads[i] = std::make_shared<Node>();
-      bucket_tails[i] = std::make_shared<Node>();
+      bucket_heads[i] = new Node();
+      bucket_tails[i] = new Node();
       bucket_heads[i]->next = bucket_tails[i];
+      bucket_heads[i]->value = LONG_MIN;
       bucket_tails[i]->prev = bucket_heads[i];
+      bucket_tails[i]->value = LONG_MAX;
     }
   }
 
-  void insert_or_assign(Key const& key, Value const& value) {
-    unsigned long index = std::hash<Key>{}(key) % TABLE_SIZE;
-    
-    std::shared_ptr<Node> parent = bucket_heads[index];
-    std::shared_ptr<Node> curr = bucket_heads[index]->next;
-    std::shared_ptr<Node> tail = bucket_tails[index];
-
-    while (curr != tail && *curr->key != key) {
-        parent = curr;
-        curr = curr->next;
-    }
-
-    if (curr == tail) {
-      std::shared_ptr<Node> const new_node = std::make_shared<Node>();
-      new_node->key = std::make_shared<Key>(key);
-      new_node->value = std::make_shared<Value>(value);
-      new_node->next = dummy;
-      new_node->prev = dummy;
-
-      new_node->next = curr;
-      new_node->prev = parent;
-      {
-        std::lock_guard<std::mutex> lock(cas_lock);
-        if (CAS4(&parent->next, &curr->prev, &new_node->next, &new_node->prev,
-                  curr, parent, dummy, dummy,
-                  new_node, new_node, curr, parent))
-          return;
-      }
-    } else {
-      auto new_value = std::make_shared<Value>(value);
-      {
-        std::lock_guard<std::mutex> lock(cas_lock);
-        if (CAS(&curr->value, curr->value, new_value)) return;
-      }
-    }
-  }
-
-  bool contains(Key key) {
-    unsigned long index = std::hash<Key>{}(key) % TABLE_SIZE;
-    std::shared_ptr<Node> curr = bucket_heads[index]->next;
-    std::shared_ptr<Node> tail = bucket_tails[index];
-
-    while (curr != tail) {
-      if (*curr->key == key) {
-        return true;
-      } else {
-        curr = curr->next;
-      }
-    }
-
-    return false;
-  }
-
-  void remove(Key const& key) {
-    unsigned long index = std::hash<Key>{}(key) % TABLE_SIZE;
-
-    std::shared_ptr<Node> curr = bucket_heads[index]->next;
-    std::shared_ptr<Node> tail = bucket_tails[index];
+  void insert_or_assign(long key, long value) {
+    unsigned long index = std::hash<long>{}(key) % TABLE_SIZE;
+    Node *new_node = new Node();
+    new_node->key = key;
+    new_node->value = value;
 
     while (true) {
-      while (curr != tail && *curr->key != key) {
-          curr = curr->next;
+      retry:
+      new_node->next = nullptr;
+      new_node->prev = nullptr;
+
+      Node *curr = bucket_heads[index]->next;
+      Node *tail = bucket_tails[index];
+
+      while (curr != nullptr && curr != tail && curr->key != key) {
+        curr = curr->next;
       }
 
-      if (curr == tail) return;
-
-      curr->next->prev = curr->prev;
-      curr->prev->next = curr->next;
-
-      std::shared_ptr<Node> c_n_prev = curr->next->prev;
-      std::shared_ptr<Node> c_p_next = curr->prev->next;
-
-      {
-        std::lock_guard<std::mutex> lock(cas_lock);
-        if (DCAS(&curr->next->prev, &curr->prev->next,
-                  c_n_prev, c_p_next,
-                  curr->prev, curr->next))
+      if (curr == nullptr) goto retry;
+      if (curr == tail) {
+        if (insert_before(tail, new_node)) {
           return;
+        } else {
+          goto retry;
+        }
+      }
+      if (curr->key == key) {
+        if ((cas((uint64_t *)&curr->value, (uint64_t)curr->value, (uint64_t)value))) {
+          delete new_node;
+          return;
+        } else {
+          std::cout << "cas failed, retry\n";
+          goto retry;
+        }
       }
     }
   }
 
-  std::shared_ptr<Value> find(Key key) {
-    unsigned long index = std::hash<Key>{}(key) % TABLE_SIZE;
+  bool contains(long key) {
+    unsigned long index = std::hash<long>{}(key) % TABLE_SIZE;
+    Node *curr = bucket_heads[index]->next;
+    Node *tail = bucket_tails[index];
 
-    std::shared_ptr<Node> curr = bucket_heads[index]->next;
-    std::shared_ptr<Node> tail = bucket_tails[index];
-
-     while (curr != tail) {
-        if (*curr->key == key) return curr->value;
+    while(true) {
+      while (curr != tail && curr != nullptr) {
+        if (curr->key == key) return true;
+        curr = curr->next;
+      }
+      if (curr == tail) return false;
     }
-
-    return nullptr;
   }
-  
+
+  void remove(long key) {
+    unsigned long index = std::hash<long>{}(key) % TABLE_SIZE;
+
+    while (true) {
+      retry:
+      Node *curr = bucket_heads[index]->next;
+      Node *tail = bucket_tails[index];
+
+      while (curr != nullptr && curr != tail && curr->key != key) {
+        curr = curr->next;
+      }
+
+      if (curr == nullptr) goto retry;
+      if (curr == tail) return;
+      if (curr->key == key) {
+        if (delete_node(curr)) return;
+      }
+    }
+  }
+
+  long find(long key) {
+    unsigned long index = std::hash<long>{}(key) % TABLE_SIZE;
+
+    Node *curr = bucket_heads[index]->next;
+    Node *tail = bucket_tails[index];
+
+    while(true) {
+      while (curr != tail && curr != nullptr) {
+        if (curr->key == key) return curr->value;
+        curr = curr->next;
+      }
+      if (curr == tail) return LONG_MIN;
+    }
+  }
 };
 
-}  // namespace lockbased
+}  // namespace lockfree_mcas
