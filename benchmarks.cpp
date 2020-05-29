@@ -15,7 +15,11 @@
 
 #include "lockfree/BinarySearchTree.h"
 #include "lockfree/SortedList.h"
+#include "lockfree/DoublyLinkedList2.h"
 #include "lockfree/HashMap.h"
+#include "lockfree/Deque.h"
+#include "lockfree/Stack.h"
+#include "lockfree/Queue.h"
 
 #include "lockfree-mcas/BinarySearchTree.h"
 #include "lockfree-mcas/Deque.h"
@@ -118,6 +122,51 @@ void benchmark_deque(Deque& deque, const Configuration& config) {
 #endif
 
 }
+
+template <typename Deque>
+void benchmark_deque_lf(Deque& deque, const Configuration& config) {
+  /* set up random number generator */
+  std::random_device rd;
+  std::mt19937 engine(rd());
+  std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN,
+                                                  DATA_VALUE_RANGE_MAX);
+  const std::thread::id MAIN_THREAD_ID = std::this_thread::get_id();
+
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_roi_begin();
+#endif
+  {
+    auto deque_worker = std::move(deque.first);
+    auto deque_stealer = std::move(deque.second);
+    // prefill deque with 1024 elements
+    for (int i = 0; i < DATA_PREFILL; i++) {
+      // deque.push_back(uniform_dist(engine));
+      deque_worker.push(uniform_dist(engine));
+    }
+
+    benchmark(config.n_threads, config.n_ops, u8"update",
+              [&deque, &deque_worker, &deque_stealer, MAIN_THREAD_ID](int random) {
+      if (std::this_thread::get_id() == MAIN_THREAD_ID)
+      {
+        auto choice1 =
+            (random % (2 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
+        if (choice1 == 0) {
+          deque_worker.push(random % DATA_VALUE_RANGE_MAX);
+        } else {
+          deque_worker.pop();
+        }
+      } else {
+        auto clone = deque_stealer;
+        clone.steal();
+      }
+    });
+  }
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_roi_end();
+#endif
+
+}
+
 
 template <typename Stack>
 void benchmark_stack(Stack& stack, const Configuration& config) {
@@ -440,11 +489,16 @@ void run_benchmarks(const Configuration& config) {
           std::cerr << "MWOBJECT not implemented for lock-free" << std::endl;
         } break;
         case Configuration::BenchmarkAlgorithm::STACK: {
+          lockfree::Stack<int> stack;
+          benchmark_stack(stack, config);
         } break;
         case Configuration::BenchmarkAlgorithm::QUEUE: {
+          lockfree::Queue queue;
+          benchmark_queue(queue, config);
         } break;
         case Configuration::BenchmarkAlgorithm::DEQUE: {
-
+          auto lf_spmc_deque = lockfree::deque::deque<int>();
+          benchmark_deque_lf(lf_spmc_deque, config);
         } break;
         case Configuration::BenchmarkAlgorithm::SORTEDLIST: {
           lockfree::SortedList list1;
@@ -520,19 +574,4 @@ void run_benchmarks(const Configuration& config) {
     } break;
   }
 
-  /*  benchmark_mwobject();
-    benchmark_deque();
-    benchmark_stack();
-    benchmark_queue();
-    benchmark_sorted_list();
-  */
-  // lockbased::benchmark_deque();
-  // lockbased::benchmark_stack();
-  // lockbased::benchmark_queue();
-  // lockbased::benchmark_sorted_list();
-  // lockbased::benchmark_hashmap();
-
-  // lockfree_mcas::benchmark_sorted_list();
-  // lockfree_mcas::benchmark_hashmap();
-  // lockfree_mcas::benchmark_bst();
 }
