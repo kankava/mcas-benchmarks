@@ -15,7 +15,6 @@
 
 #include "lockfree/BinarySearchTree.h"
 #include "lockfree/SortedList.h"
-#include "lockfree/DoublyLinkedList2.h"
 #include "lockfree/HashMap.h"
 #include "lockfree/Deque.h"
 #include "lockfree/Stack.h"
