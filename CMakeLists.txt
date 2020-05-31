@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 project(mcas-benchmarks)
 
 set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 
 set(CMAKE_C_FLAGS "-Wall -fstack-protector -fstack-protector-all")
 set(CMAKE_CXX_FLAGS "-Wall -fstack-protector -fstack-protector-all")
@@ -21,30 +21,29 @@ if (BUILD_TESTS)
     enable_testing()
 endif ()
 
-add_subdirectory(lockfree-mcas)
+if (MCAS_GEM5)
+    add_definitions(-DMCAS_GEM5)
+    add_definitions(-DENABLE_PARSEC_HOOKS)
+endif ()
 
 find_package(Threads REQUIRED)
-find_package(OpenMP REQUIRED)
-if (OPENMP_FOUND)
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
-endif()
 
 file(GLOB LB_HEADER_FILES "lockbased/*.h")
 file(GLOB LB_SOURCE_FILES "lockbased/*.cpp")
+
+file(GLOB LF_HEADER_FILES "lockfree/*.h")
+file(GLOB LF_SOURCE_FILES "lockfree/*.cpp")
 
 file(GLOB LFMCAS_HEADER_FILES "lockfree-mcas/*.h")
 file(GLOB LFMCAS_SOURCE_FILES "lockfree-mcas/*.cpp")
 
 add_executable(mcas_benchmarks main.cpp benchmarks.cpp benchmarks.h mcas/mcas.h
                ${LB_HEADER_FILES} ${LB_SOURCE_FILES}
+               ${LF_HEADER_FILES} ${LF_SOURCE_FILES}
                ${LFMCAS_HEADER_FILES} ${LFMCAS_SOURCE_FILES}
               )
 target_link_libraries(mcas_benchmarks ${CMAKE_THREAD_LIBS_INIT})
 
-add_executable(test_casn test_casn.cpp catch.hpp)
-target_link_libraries(test_casn ${CMAKE_THREAD_LIBS_INIT})
 
 #find_program(STATIC_ANALYZER pvs-studio)
 #
