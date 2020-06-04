@@ -12,6 +12,7 @@
 #include "lockbased/SortedList.h"
 #include "lockbased/Stack.h"
 #include "lockbased/BinarySearchTree.h"
+#include "lockbased/array_swap.h"
 
 #include "lockfree/BinarySearchTree.h"
 #include "lockfree/SortedList.h"
@@ -26,6 +27,7 @@
 #include "lockfree-mcas/Queue.h"
 #include "lockfree-mcas/SortedList.h"
 #include "lockfree-mcas/Stack.h"
+#include "lockfree-mcas/array_swap.h"
 
 static const int DATA_VALUE_RANGE_MIN = 0;
 static const int DATA_VALUE_RANGE_MAX = 256;
@@ -39,8 +41,6 @@ void benchmark_mwobject(const Configuration& config) {
     uint64_t d;
   } counters{};
 
-  std::mutex cas_lock = {};
-
   /* set up random number generator */
   std::random_device rd;
   std::mt19937 engine(rd());
@@ -51,7 +51,7 @@ void benchmark_mwobject(const Configuration& config) {
   __parsec_roi_begin();
 #endif
   {
-    benchmark(config.n_threads, config.n_ops, u8"Update", [&counters, &cas_lock](int random) {
+    benchmark(config.n_threads, config.n_ops, u8"Update", [&counters](int random) {
       while (true) {
         uint64_t old_a = counters.a;
         uint64_t old_b = counters.b;
@@ -77,6 +77,16 @@ void benchmark_mwobject(const Configuration& config) {
   __parsec_roi_end();
 #endif
 
+}
+
+void benchmark_arrayswap(const Configuration& config) {
+  int time = lockbased::ArraySwap::run_benchmark(config.n_threads, config.n_ops);
+  std::cout << "time elapsed " << time << "\n";
+}
+
+void benchmark_mcas_arrayswap(const Configuration& config) {
+  int time = lockfree_mcas::ArraySwap::run_benchmark(config.n_threads, config.n_ops);
+  std::cout << "time elapsed " << time << "\n";
 }
 
 template <typename Deque>
@@ -443,6 +453,10 @@ void run_benchmarks(const Configuration& config) {
       switch (config.benchmarking_algorithm) {
         case Configuration::BenchmarkAlgorithm::MWOBJECT: {
         } break;
+        case Configuration::BenchmarkAlgorithm::ARRAYSWAP: {
+          std::cout << "Benchmark Locking Array Swap" << std::endl;
+          benchmark_arrayswap(config);
+        } break;
         case Configuration::BenchmarkAlgorithm::STACK: {
           std::cout << "Benchmark Locking Stack" << std::endl;
           lockbased::Stack<int> stack;
@@ -478,7 +492,6 @@ void run_benchmarks(const Configuration& config) {
         } break;
         case Configuration::ALG_UNDEF: {
           std::cerr << "ALG_UNDEF" << std::endl;
-          exit(0);
         } break;
       }
     } break;
@@ -486,6 +499,9 @@ void run_benchmarks(const Configuration& config) {
       switch (config.benchmarking_algorithm) {
         case Configuration::BenchmarkAlgorithm::MWOBJECT: {
           std::cerr << "MWOBJECT not implemented for lock-free" << std::endl;
+        } break;
+        case Configuration::BenchmarkAlgorithm::ARRAYSWAP: {
+          std::cerr << "ARRAYSWAP not implemented for lock-free" << std::endl;
         } break;
         case Configuration::BenchmarkAlgorithm::STACK: {
           lockfree::Stack<int> stack;
@@ -518,7 +534,6 @@ void run_benchmarks(const Configuration& config) {
         } break;
         case Configuration::ALG_UNDEF: {
           std::cerr << "ALG_UNDEF" << std::endl;
-          exit(0);
         } break;
       }
     } break;
@@ -527,6 +542,10 @@ void run_benchmarks(const Configuration& config) {
         case Configuration::BenchmarkAlgorithm::MWOBJECT: {
           std::cout << "Benchmark Lock-Free MCAS MW Object" << std::endl;
           benchmark_mwobject(config);
+        } break;
+        case Configuration::BenchmarkAlgorithm::ARRAYSWAP: {
+          std::cout << "Benchmark Lock-Free MCAS Array Swap" << std::endl;
+          benchmark_mcas_arrayswap(config);
         } break;
         case Configuration::BenchmarkAlgorithm::STACK: {
           std::cout << "Benchmark Lock-Free MCAS Stack" << std::endl;
@@ -563,13 +582,11 @@ void run_benchmarks(const Configuration& config) {
         } break;
         case Configuration::ALG_UNDEF: {
           std::cerr << "ALG_UNDEF" << std::endl;
-          exit(0);
         } break;
       }
     } break;
     case Configuration::SYNC_UNDEF: {
       std::cerr << "SYNC_UNDEF" << std::endl;
-      exit(0);
     } break;
   }
 

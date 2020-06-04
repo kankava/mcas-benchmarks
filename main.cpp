@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
       ("i,iter", "Number of iterations", cxxopts::value<int>()->default_value("1"))
       ("o,ops", "Number of operations per thread", cxxopts::value<int>()->default_value("100"))
       ("s,sync", "Synchronization type: lock, lockfree, lockfree-mcas", cxxopts::value<std::string>())
-      ("a,algorithm", "Benchmark algorithm: mwobject, stack, queue, deque, sorted-list, hashmap, bst", cxxopts::value<std::string>())
+      ("a,algorithm", "Benchmark algorithm: mwobject, arrayswap, stack, queue, deque, sorted-list, hashmap, bst", cxxopts::value<std::string>())
       ("d,debug", "Enable debugging", cxxopts::value<bool>()->default_value("false"))
       ("h,help", "Print usage")
       ;
@@ -61,6 +61,7 @@ int main(int argc, char *argv[])
   if (result.count("algorithm")) {
     std::string algorithm = result["algorithm"].as<std::string>();
     if (algorithm == "mwobject") conf.benchmarking_algorithm = Configuration::BenchmarkAlgorithm::MWOBJECT;
+    if (algorithm == "arrayswap") conf.benchmarking_algorithm = Configuration::BenchmarkAlgorithm::ARRAYSWAP;
     if (algorithm == "stack") conf.benchmarking_algorithm = Configuration::BenchmarkAlgorithm::STACK;
     if (algorithm == "queue") conf.benchmarking_algorithm = Configuration::BenchmarkAlgorithm::QUEUE;
     if (algorithm == "deque") conf.benchmarking_algorithm = Configuration::BenchmarkAlgorithm::DEQUE;

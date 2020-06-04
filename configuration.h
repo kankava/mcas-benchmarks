@@ -12,6 +12,7 @@ public:
   enum BenchmarkAlgorithm{
     ALG_UNDEF,
     MWOBJECT,
+    ARRAYSWAP,
     STACK,
     QUEUE,
     DEQUE,
