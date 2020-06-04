@@ -40,14 +40,7 @@ void benchmark_mwobject(const Configuration& config) {
     uint64_t c;
     uint64_t d;
   } counters{};
-
   std::mutex counters_lock;
-
-  /* set up random number generator */
-  std::random_device rd;
-  std::mt19937 engine(rd());
-  std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN,
-                                                  DATA_VALUE_RANGE_MAX);
 
 #ifdef ENABLE_PARSEC_HOOKS
   __parsec_roi_begin();
@@ -74,12 +67,6 @@ void benchmark_mcas_mwobject(const Configuration& config) {
     uint64_t c;
     uint64_t d;
   } counters{};
-
-  /* set up random number generator */
-  std::random_device rd;
-  std::mt19937 engine(rd());
-  std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN,
-                                                  DATA_VALUE_RANGE_MAX);
 
 #ifdef ENABLE_PARSEC_HOOKS
   __parsec_roi_begin();
@@ -273,7 +260,6 @@ void benchmark_stack(Stack& stack, const Configuration& config) {
           (random % (2 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
       if (choice == 0) {
         stack.push(random % DATA_VALUE_RANGE_MAX);
-        ;
       } else {
         stack.pop();
       }
@@ -307,7 +293,6 @@ void benchmark_queue(Queue& queue, const Configuration& config) {
           (random % (2 * DATA_VALUE_RANGE_MAX)) / DATA_VALUE_RANGE_MAX;
       if (choice == 0) {
         queue.push(random % DATA_VALUE_RANGE_MAX);
-        ;
       } else {
         queue.pop();
       }
@@ -456,7 +441,7 @@ void benchmark_hashmap(HashMap& map1, HashMap& map2,
 }
 
 template <typename BST>
-void bst_lookup(BST& bst, int random) {
+void bst_lookup(BST& bst) {
   /* read operations: 100% read */
   bst.get_min();
 }
@@ -502,7 +487,7 @@ void benchmark_bst(BST& bst1, BST& bst2, const Configuration& config) {
       bst1.insert(uniform_dist(engine));
     }
     benchmark(config.n_threads, config.n_ops, u8"read",
-              [&bst1](int random) { bst_lookup(bst1, random); });
+              [&bst1](int random) { bst_lookup(bst1); });
     benchmark(config.n_threads, config.n_ops, u8"update",
               [&bst1](int random) { bst_update(bst1, random); });
   }
