@@ -42,6 +42,7 @@ void worker(unsigned int random_seed, double& time,
 template<typename Function>
 void benchmark(unsigned int threadcnt, unsigned int n_ops,
                const std::string& identifier, Function fun) {
+  n_ops = n_ops / threadcnt;
   /* spawn workers */
   std::vector<double> times(threadcnt);
   std::vector<std::thread*> workers;
