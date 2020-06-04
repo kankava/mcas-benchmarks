@@ -68,15 +68,16 @@ bool swap(unsigned int index_a, unsigned int index_b) {
     index_b = index_tmp;
   }
 
-  Element* addr_a = S->array[index_a].elements_;
-  Element* addr_b = S->array[index_b].elements_;
+  while (true) {
+    Element* addr_a = S->array[index_a].elements_;
+    Element* addr_b = S->array[index_b].elements_;
 
-  dcas(reinterpret_cast<uint64_t*>(&S->array[index_a].elements_),
-       reinterpret_cast<uint64_t>(addr_a), reinterpret_cast<uint64_t>(addr_b),
-       reinterpret_cast<uint64_t*>(&S->array[index_b].elements_),
-       reinterpret_cast<uint64_t>(addr_b), reinterpret_cast<uint64_t>(addr_a));
-
-  return true;
+    if (dcas(reinterpret_cast<uint64_t*>(&S->array[index_a].elements_),
+         reinterpret_cast<uint64_t>(addr_a), reinterpret_cast<uint64_t>(addr_b),
+         reinterpret_cast<uint64_t*>(&S->array[index_b].elements_),
+         reinterpret_cast<uint64_t>(addr_b),
+         reinterpret_cast<uint64_t>(addr_a))) return true;
+  }
 }
 
 }  // namespace ArraySwap
