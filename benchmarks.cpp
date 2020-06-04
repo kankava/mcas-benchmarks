@@ -41,6 +41,40 @@ void benchmark_mwobject(const Configuration& config) {
     uint64_t d;
   } counters{};
 
+  std::mutex counters_lock;
+
+  /* set up random number generator */
+  std::random_device rd;
+  std::mt19937 engine(rd());
+  std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN,
+                                                  DATA_VALUE_RANGE_MAX);
+
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_roi_begin();
+#endif
+  {
+    benchmark(config.n_threads, config.n_ops, u8"Update", [&counters, &counters_lock](int random) {
+      std::lock_guard<std::mutex> lock(counters_lock);
+      counters.a++;
+      counters.b++;
+      counters.c++;
+      counters.d++;
+    });
+  }
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_roi_end();
+#endif
+
+}
+
+void benchmark_mcas_mwobject(const Configuration& config) {
+  struct {
+    uint64_t a;
+    uint64_t b;
+    uint64_t c;
+    uint64_t d;
+  } counters{};
+
   /* set up random number generator */
   std::random_device rd;
   std::mt19937 engine(rd());
@@ -492,6 +526,8 @@ void run_benchmarks(const Configuration& config) {
     case Configuration::SyncType::LOCK: {
       switch (config.benchmarking_algorithm) {
         case Configuration::BenchmarkAlgorithm::MWOBJECT: {
+          std::cout << "Benchmark Locking MWObject" << std::endl;
+          benchmark_mwobject(config);
         } break;
         case Configuration::BenchmarkAlgorithm::ARRAYSWAP: {
           std::cout << "Benchmark Locking Array Swap" << std::endl;
@@ -580,7 +616,7 @@ void run_benchmarks(const Configuration& config) {
     case Configuration::SyncType::LOCKFREE_MCAS: {
       switch (config.benchmarking_algorithm) {
         case Configuration::BenchmarkAlgorithm::MWOBJECT: {
-          std::cout << "Benchmark Lock-Free MCAS MW Object" << std::endl;
+          std::cout << "Benchmark Lock-Free MCAS MWObject" << std::endl;
           benchmark_mwobject(config);
         } break;
         case Configuration::BenchmarkAlgorithm::ARRAYSWAP: {
