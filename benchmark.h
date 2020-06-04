@@ -19,38 +19,33 @@ static const int RANDOM_VALUE_RANGE_MAX = 65536;
 
 /* template is used to allow functions/functors of any signature */
 template<typename Function>
-void worker(unsigned int random_seed, double& time,
-            unsigned int n_ops, Function fun) {
+void worker(unsigned int random_seed, unsigned int n_ops, Function fun) {
   /* set up random number generator */
   std::mt19937 engine(random_seed);
   std::uniform_int_distribution<int> uniform_dist(RANDOM_VALUE_RANGE_MIN, RANDOM_VALUE_RANGE_MAX);
-  /* for time measurements */
-  typedef std::chrono::high_resolution_clock clock;
-  std::chrono::time_point<clock> start_time = clock::now();
 
   for (unsigned int i = 0; i < n_ops; i++) {
     auto random = uniform_dist(engine);
     /* do specified work */
     fun(random);
   }
-
-  std::chrono::time_point<clock> end_time = clock::now();
-  time = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
 }
 
 
 template<typename Function>
 void benchmark(unsigned int threadcnt, unsigned int n_ops,
                const std::string& identifier, Function fun) {
-  n_ops = n_ops / threadcnt;
+  auto n_ops_per_thread = n_ops / threadcnt;
   /* spawn workers */
-  std::vector<double> times(threadcnt);
   std::vector<std::thread*> workers;
   std::random_device rd;
+
+  using clock = std::chrono::high_resolution_clock;
+  std::chrono::time_point<clock> start_time = clock::now();
+
   for(unsigned int i = 0; i < threadcnt-1; i++) {
     auto seed = rd();
-    auto& t = times[i];
-    auto w = new std::thread([seed, &t, n_ops, fun]() { worker(seed, t, n_ops, fun); });
+    auto w = new std::thread([seed, n_ops_per_thread, fun]() { worker(seed, n_ops_per_thread, fun); });
     workers.push_back(w);
     // set thread affinity for workers
     cpu_set_t cpuset;
@@ -65,24 +60,18 @@ void benchmark(unsigned int threadcnt, unsigned int n_ops,
   CPU_SET(0, &cpuset);
   pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 
-  auto& main_thread_time = times[0];
-  worker(rd(), main_thread_time, n_ops, fun);
+  worker(rd(), n_ops_per_thread, fun);
 
   /* make sure all workers terminated */
   for(auto& w : workers) {
     w->join();
     delete w;
   }
+  std::chrono::time_point<clock> end_time = clock::now();
   workers.clear();
 
-  /* compute sum of partial results */
-  double result = 0.0;
-  for(auto& v : times) {
-    result += v;
-  }
-
-  result = result / threadcnt;
+  long time = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
   std::cout << identifier << std::endl << u8"\tthreads: " << threadcnt
             << u8" - ops: " << n_ops
-            << u8" - time: "<< std::fixed << result << "\n";
+            << u8" - time: " << time << "ms" << "\n";
 }
