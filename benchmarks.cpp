@@ -80,13 +80,53 @@ void benchmark_mwobject(const Configuration& config) {
 }
 
 void benchmark_arrayswap(const Configuration& config) {
-  int time = lockbased::ArraySwap::run_benchmark(config.n_threads, config.n_ops);
-  std::cout << "time elapsed " << time << "\n";
+    lockbased::ArraySwap::initialize();
+
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_roi_begin();
+#endif
+  {
+    benchmark(config.n_threads, config.n_ops, u8"swap", [](int random) {
+      /* set up random number generator */
+      std::random_device rd;
+      std::mt19937 engine(rd());
+      std::uniform_int_distribution<int> uniform_dist(0, lockbased::ArraySwap::NUM_ROWS-1);
+
+      int index_a = uniform_dist(engine);
+      int index_b = uniform_dist(engine);
+      lockbased::ArraySwap::swap(index_a, index_b);
+    });
+  }
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_roi_end();
+#endif
+
+  lockbased::ArraySwap::datum_free(lockbased::ArraySwap::S);
 }
 
 void benchmark_mcas_arrayswap(const Configuration& config) {
-  int time = lockfree_mcas::ArraySwap::run_benchmark(config.n_threads, config.n_ops);
-  std::cout << "time elapsed " << time << "\n";
+  lockfree_mcas::ArraySwap::initialize();
+
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_roi_begin();
+#endif
+  {
+    benchmark(config.n_threads, config.n_ops, u8"swap", [](int random) {
+      /* set up random number generator */
+      std::random_device rd;
+      std::mt19937 engine(rd());
+      std::uniform_int_distribution<int> uniform_dist(0, lockfree_mcas::ArraySwap::NUM_ROWS-1);
+
+      int index_a = uniform_dist(engine);
+      int index_b = uniform_dist(engine);
+      lockfree_mcas::ArraySwap::swap(index_a, index_b);
+    });
+  }
+#ifdef ENABLE_PARSEC_HOOKS
+  __parsec_roi_end();
+#endif
+
+  lockfree_mcas::ArraySwap::datum_free(lockfree_mcas::ArraySwap::S);
 }
 
 template <typename Deque>

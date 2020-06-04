@@ -1,28 +1,18 @@
 #pragma once
 
 #include <pthread.h>
-#include <sys/time.h>
 #include <cassert>
 #include <cstdint>
-#include <ctime>
 #include <memory>
 
 namespace lockbased {
 namespace ArraySwap {
 
-#define NUM_SUB_ITEMS 2
-// #define NUM_OPS 10000000
-#define NUM_ROWS 100000
-// #define NUM_THREADS 1
+const int NUM_SUB_ITEMS = 2;
+const int NUM_ROWS = 100000;
 
 struct Element {
   int32_t value_[NUM_SUB_ITEMS];
-  // Element& operator=(Element& other) {
-  // for (int i= 0; i< NUM_SUB_ITEMS; i++) {
-  //   *(value_ + i) = *(other.value_ + i);
-  // }
-  // return *this;
-  // }
 };
 
 struct Datum {
@@ -65,7 +55,7 @@ void initialize() {
   S->array = (Datum*)malloc(sizeof(Datum) * NUM_ROWS);
   datum_init(S);
 
-  fprintf(stderr, "Created array at %p\n", (void*)S);
+  // fprintf(stderr, "Created array at %p\n", (void*)S);
 }
 
 bool swap(unsigned int index_a, unsigned int index_b) {
@@ -95,52 +85,6 @@ bool swap(unsigned int index_a, unsigned int index_b) {
   pthread_mutex_unlock(S->array[index_b].lock_);
 
   return true;
-}
-
-struct args {
-  unsigned int num_threads;
-  unsigned int num_ops;
-};
-
-void* run_stub(void* ptr) {
-  unsigned int num_ops = ((struct args*)ptr)->num_ops;
-  unsigned int num_threads = ((struct args*)ptr)->num_threads;
-  for (int i = 0; i < num_ops / num_threads; ++i) {
-    int index_a = rand() % NUM_ROWS;
-    int index_b = rand() % NUM_ROWS;
-    swap(index_a, index_b);
-  }
-  return nullptr;
-}
-
-int run_benchmark(unsigned int num_threads, unsigned int num_ops) {
-  struct timeval tv_start;
-  struct timeval tv_end;
-
-  // This contains the Atlas restart code to find any reusable data
-  initialize();
-  struct args* Args = (struct args*)malloc(sizeof(struct args));
-  Args->num_threads = num_threads;
-  Args->num_ops = num_ops;
-
-  pthread_t threads[num_threads];
-
-  gettimeofday(&tv_start, NULL);
-  for (int i = 0; i < num_threads; ++i) {
-    pthread_create(&threads[i], NULL, &run_stub, (void*)Args);
-  }
-
-  for (int i = 0; i < num_threads; ++i) {
-    pthread_join(threads[i], NULL);
-  }
-
-  gettimeofday(&tv_end, NULL);
-
-  datum_free(S);
-  free(S->array);
-  free(S);
-  return (tv_end.tv_usec - tv_start.tv_usec) +
-         (tv_end.tv_sec - tv_start.tv_sec) * 1000000;
 }
 
 }  // namespace ArraySwap
