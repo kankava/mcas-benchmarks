@@ -617,7 +617,7 @@ void run_benchmarks(const Configuration& config) {
       switch (config.benchmarking_algorithm) {
         case Configuration::BenchmarkAlgorithm::MWOBJECT: {
           std::cout << "Benchmark Lock-Free MCAS MWObject" << std::endl;
-          benchmark_mwobject(config);
+          benchmark_mcas_mwobject(config);
         } break;
         case Configuration::BenchmarkAlgorithm::ARRAYSWAP: {
           std::cout << "Benchmark Lock-Free MCAS Array Swap" << std::endl;
