@@ -61,12 +61,12 @@ bool swap(unsigned int index_a, unsigned int index_b) {
   // exit if swapping the same index
   if (index_a == index_b) return true;
 
-  // enforce index_a < index_b
-  if (index_a > index_b) {
-    unsigned int index_tmp = index_a;
-    index_a = index_b;
-    index_b = index_tmp;
-  }
+  // enforce index_a < index_b not needed in lockfree
+  // if (index_a > index_b) {
+  //   unsigned int index_tmp = index_a;
+  //   index_a = index_b;
+  //   index_b = index_tmp;
+  // }
 
   while (true) {
     Element* addr_a = S->array[index_a].elements_;
