@@ -5,35 +5,45 @@
 
 namespace lockbased {
 
-template <typename T>
+
 class Deque {
  private:
   struct Node {
-    std::shared_ptr<T> data;
-    std::shared_ptr<Node> prev;
-    std::shared_ptr<Node> next;
+    int data;
+    Node *prev;
+    Node *next;
     Node() = default;
   };
 
-  std::shared_ptr<Node> head;
-  std::shared_ptr<Node> tail;
+  Node *head;
+  Node *tail;
   std::mutex deque_lock = {};
 
  public:
   Deque() {
-    head = std::make_shared<Node>();
-    tail = std::make_shared<Node>();
+    head = new Node();
+    tail = new Node();
 
     head->next = tail;
     tail->prev = head;
   }
 
+  virtual ~Deque() {
+    Node *curr = head;
+    while (curr != tail) {
+      Node *tmp = curr;
+      curr = curr->next;
+      delete tmp;
+    }
+    delete tail;
+  }
+
   // push_left
-  void push_front(T const& data) {
+  void push_front(int const& data) {
     std::lock_guard<std::mutex> lock(deque_lock);
     
-    std::shared_ptr<Node> const new_node = std::make_shared<Node>();
-    new_node->data = std::make_shared<T>(data);
+    Node *new_node = new Node();
+    new_node->data = data;
     
     new_node->next = head->next;
     new_node->prev = head;
@@ -43,11 +53,11 @@ class Deque {
   }
 
   // push_right
-  void push_back(T const& data) {
+  void push_back(int const& data) {
     std::lock_guard<std::mutex> lock(deque_lock);
     
-    std::shared_ptr<Node> const new_node = std::make_shared<Node>();
-    new_node->data = std::make_shared<T>(data);
+    Node *new_node = new Node();
+    new_node->data = data;
 
     new_node->next = tail;
     new_node->prev = tail->prev;
@@ -57,27 +67,31 @@ class Deque {
   }
 
   // pop_left
-  std::shared_ptr<T> pop_front() {
+  int pop_front() {
     std::lock_guard<std::mutex> lock(deque_lock);
     
     if (head->next != tail) {
-      std::shared_ptr<T> data = head->next->data;
+      int data = head->next->data;
+      Node *tmp = head->next;
       head->next = head->next->next;
+      delete tmp;
       return data;
     }
-    return nullptr;
+    return -1;
   }
 
   // pop_right
-  std::shared_ptr<T> pop_back() {
+  int pop_back() {
     std::lock_guard<std::mutex> lock(deque_lock);
     
     if (tail->prev != head) {
-      std::shared_ptr<T> data = tail->prev->data;
+      int data = tail->prev->data;
+      Node *tmp = tail->prev;
       tail->prev = tail->prev->prev;
+      delete tmp;
       return data;
     }
-    return nullptr;
+    return -1;
   }
 };
 

@@ -5,41 +5,52 @@
 
 namespace lockbased {
 
-template <typename T>
+
 class SortedList {
  private:
   struct Node {
-    std::shared_ptr<T> data;
-    std::shared_ptr<Node> next;
-    std::shared_ptr<Node> prev;
+    int data;
+    Node *next;
+    Node *prev;
     Node() = default;
   };
 
-  std::shared_ptr<Node> head;
-  std::shared_ptr<Node> tail;
+  Node *head;
+  Node *tail;
   std::mutex list_lock = {};
 
  public:
   SortedList() {
-    head = std::make_shared<Node>();
-    tail = std::make_shared<Node>();
+    head = new Node();
+    tail = new Node();
     head->next = tail;
     tail->prev = head;
   }
 
-  void insert(T const& data) {
+  virtual ~SortedList() {
+      auto curr = head;
+
+      while (curr != tail) {
+        Node *tmp = curr;
+        curr = curr->next;
+        delete tmp;
+      }
+      delete tail;
+  }
+
+  void insert(int const& data) {
     std::lock_guard<std::mutex> lock(list_lock);
 
     auto parent = head;
     auto curr = head->next;
 
-    while (curr != tail && *curr->data < data) {
+    while (curr != tail && curr->data < data) {
       parent = curr;
       curr = curr->next;
     }
 
-    std::shared_ptr<Node> const new_node = std::make_shared<Node>();
-    new_node->data = std::make_shared<T>(data);
+    Node *new_node = new Node();
+    new_node->data = data;
     new_node->next = curr;
     new_node->prev = parent;
     
@@ -49,24 +60,26 @@ class SortedList {
     return;
   }
 
-  void remove(T const& data) {
+  void remove(int const& data) {
     std::lock_guard<std::mutex> lock(list_lock);
 
-    std::shared_ptr<Node> curr = head->next;
-    while (curr != tail && *curr->data < data) {
+    Node *curr = head->next;
+    while (curr != tail && curr->data < data) {
       curr = curr->next;
     }
 
     if (curr == tail) return;
-    if (*curr->data != data) return;
-   
+    if (curr->data != data) return;
+
+    Node *tmp = curr;
     curr->next->prev = curr->prev;
     curr->prev->next = curr->next;
+    delete tmp;
 
     return;
   }
 
-  int count(T val) {
+  int count(int val) {
     std::lock_guard<std::mutex> lock(list_lock);
     
     int n_val = 0;
@@ -74,7 +87,7 @@ class SortedList {
     n_val = 0;
 
     while (curr != tail) {
-      if (*curr->data == val) n_val++;
+      if (curr->data == val) n_val++;
       curr = curr->next;
     }
 
@@ -86,7 +99,7 @@ class SortedList {
     auto curr = head->next;
 
     while (curr != tail) {
-      std::cout << *curr->data << " ";
+      std::cout << curr->data << " ";
       curr = curr->next;
     }
     std::cout << std::endl;

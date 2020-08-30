@@ -520,29 +520,29 @@ void run_benchmarks(const Configuration& config) {
         } break;
         case Configuration::BenchmarkAlgorithm::STACK: {
           std::cout << "Benchmark Locking Stack" << std::endl;
-          lockbased::Stack<int> stack;
+          lockbased::Stack stack;
           benchmark_stack(stack, config);
         } break;
         case Configuration::BenchmarkAlgorithm::QUEUE: {
           std::cout << "Benchmark Locking Queue" << std::endl;
-          lockbased::Queue<int> queue;
+          lockbased::Queue queue;
           benchmark_queue(queue, config);
         } break;
         case Configuration::BenchmarkAlgorithm::DEQUE: {
           std::cout << "Benchmark Locking Deque" << std::endl;
-          lockbased::Deque<int> deque;
+          lockbased::Deque deque;
           benchmark_deque(deque, config);
         } break;
         case Configuration::BenchmarkAlgorithm::SORTEDLIST: {
           std::cout << "Benchmark Locking Sorted List" << std::endl;
-          lockbased::SortedList<int> list1;
-          lockbased::SortedList<int> list2;
+          lockbased::SortedList list1;
+          lockbased::SortedList list2;
           benchmark_sorted_list(list1, list2, config);
         } break;
         case Configuration::BenchmarkAlgorithm::HASHMAP: {
           std::cout << "Benchmark Locking HashMap" << std::endl;
-          lockbased::HashMap<int, int> map1;
-          lockbased::HashMap<int, int> map2;
+          lockbased::HashMap map1;
+          lockbased::HashMap map2;
           benchmark_hashmap(map1, map2, config);
         } break;
         case Configuration::BenchmarkAlgorithm::BST: {

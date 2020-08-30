@@ -4,11 +4,11 @@
 
 namespace lockbased {
 
-template <typename T>
-class Stack : Deque<T> {
+
+class Stack : Deque {
  public:
-  void push(T const& data) { return Deque<T>::push_front(data); }
-  std::shared_ptr<T> pop() { return Deque<T>::pop_front(); }
+  void push(int const& data) { return Deque::push_front(data); }
+  int pop() { return Deque::pop_front(); }
 };
 
 }  // namespace lockbased
