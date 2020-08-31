@@ -1,5 +1,3 @@
-// Greenwald DCAS Based
-
 #pragma once
 
 #include <climits>
