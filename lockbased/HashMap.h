@@ -95,21 +95,24 @@ class HashMap {
   }
 
   void remove(int const& key) {
-    std::lock_guard<std::mutex> lock(hm_lock);
-    unsigned long index = std::hash<int>{}(key) % TABLE_SIZE;
+    Node *tmp;
+    {
+      std::lock_guard<std::mutex> lock(hm_lock);
+      unsigned long index = std::hash<int>{}(key) % TABLE_SIZE;
 
-    Node *curr = bucket_heads[index]->next;
-    Node *tail = bucket_tails[index];
+      Node *curr = bucket_heads[index]->next;
+      Node *tail = bucket_tails[index];
 
-    while (curr != tail && curr->key != key) {
+      while (curr != tail && curr->key != key) {
         curr = curr->next;
+      }
+
+      if (curr == tail) return;
+
+      tmp = curr;
+      curr->next->prev = curr->prev;
+      curr->prev->next = curr->next;
     }
-
-    if (curr == tail) return;
-
-    Node *tmp = curr;
-    curr->next->prev = curr->prev;
-    curr->prev->next = curr->next;
     delete tmp;
 
     return;

@@ -32,33 +32,35 @@ class BinarySearchTree {
   BinarySearchTree() : root(nullptr) {};
 
   void insert(const int value) {
-    std::lock_guard<std::recursive_mutex> lock(bst_lock);
     Node *new_node = new Node();
     new_node->value = value;
+    {
+      std::lock_guard<std::recursive_mutex> lock(bst_lock);
 
-    if (!root) {
-      root = new_node;
-      return;
-    }
-
-    Node *curr = root;
-    Node *prev = nullptr;
-    node_type type = LEFT;
-
-    while (curr) {
-      prev = curr;
-      if (value < curr->value) {
-        curr = curr->left;
-        type = LEFT;
-      } else {
-        curr = curr->right;
-        type = RIGHT;
+      if (!root) {
+	root = new_node;
+	return;
       }
 
-      if (type == LEFT) {
-        prev->left = new_node;
-      } else {
-        prev->right = new_node;
+      Node *curr = root;
+      Node *prev = nullptr;
+      node_type type = LEFT;
+
+      while (curr) {
+	prev = curr;
+	if (value < curr->value) {
+	  curr = curr->left;
+	  type = LEFT;
+	} else {
+	  curr = curr->right;
+	  type = RIGHT;
+	}
+
+	if (type == LEFT) {
+	  prev->left = new_node;
+	} else {
+	  prev->right = new_node;
+	}
       }
     }
   }

@@ -40,58 +40,68 @@ class Deque {
 
   // push_left
   void push_front(int const& data) {
-    std::lock_guard<std::mutex> lock(deque_lock);
-    
     Node *new_node = new Node();
     new_node->data = data;
+    {
+      std::lock_guard<std::mutex> lock(deque_lock);
     
-    new_node->next = head->next;
-    new_node->prev = head;
+      new_node->next = head->next;
+      new_node->prev = head;
 
-    head->next->prev = new_node;
-    head->next = new_node;
+      head->next->prev = new_node;
+      head->next = new_node;
+    }
   }
 
   // push_right
   void push_back(int const& data) {
-    std::lock_guard<std::mutex> lock(deque_lock);
-    
     Node *new_node = new Node();
     new_node->data = data;
+    {
+      std::lock_guard<std::mutex> lock(deque_lock);
 
-    new_node->next = tail;
-    new_node->prev = tail->prev;
+      new_node->next = tail;
+      new_node->prev = tail->prev;
 
-    tail->prev->next = new_node;
-    tail->prev = new_node;
+      tail->prev->next = new_node;
+      tail->prev = new_node;
+    }
   }
 
   // pop_left
   int pop_front() {
-    std::lock_guard<std::mutex> lock(deque_lock);
-    
-    if (head->next != tail) {
-      int data = head->next->data;
-      Node *tmp = head->next;
-      head->next = head->next->next;
-      delete tmp;
-      return data;
+    int data = -1;
+    bool found = false;
+    Node *tmp;
+    {
+      std::lock_guard<std::mutex> lock(deque_lock);
+      if (head->next != tail) {
+	data = head->next->data;
+	tmp = head->next;
+	head->next = head->next->next;
+	found = true;
+      }
     }
-    return -1;
+    if (found) delete tmp;
+    return data;
   }
 
   // pop_right
   int pop_back() {
-    std::lock_guard<std::mutex> lock(deque_lock);
-    
-    if (tail->prev != head) {
-      int data = tail->prev->data;
-      Node *tmp = tail->prev;
-      tail->prev = tail->prev->prev;
-      delete tmp;
-      return data;
+    int data = -1;
+    bool found = false;
+    Node *tmp;
+    {
+      std::lock_guard<std::mutex> lock(deque_lock);
+      if (tail->prev != head) {
+	data = tail->prev->data;
+	tmp = tail->prev;
+	tail->prev = tail->prev->prev;
+	found = true;
+      }
     }
-    return -1;
+    if (found) delete tmp;
+    return data;
   }
 };
 

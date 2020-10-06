@@ -39,41 +39,45 @@ class SortedList {
   }
 
   void insert(int const& data) {
-    std::lock_guard<std::mutex> lock(list_lock);
-
-    auto parent = head;
-    auto curr = head->next;
-
-    while (curr != tail && curr->data < data) {
-      parent = curr;
-      curr = curr->next;
-    }
-
     Node *new_node = new Node();
     new_node->data = data;
-    new_node->next = curr;
-    new_node->prev = parent;
+    {
+      std::lock_guard<std::mutex> lock(list_lock);
+
+      auto parent = head;
+      auto curr = head->next;
+
+      while (curr != tail && curr->data < data) {
+	parent = curr;
+	curr = curr->next;
+      }
+
+      new_node->next = curr;
+      new_node->prev = parent;
     
-    parent->next = new_node;
-    curr->prev = new_node;
-    
+      parent->next = new_node;
+      curr->prev = new_node;
+    }
     return;
   }
 
   void remove(int const& data) {
-    std::lock_guard<std::mutex> lock(list_lock);
+    Node *tmp;
+    {
+      std::lock_guard<std::mutex> lock(list_lock);
 
-    Node *curr = head->next;
-    while (curr != tail && curr->data < data) {
-      curr = curr->next;
+      Node *curr = head->next;
+      while (curr != tail && curr->data < data) {
+	curr = curr->next;
+      }
+
+      if (curr == tail) return;
+      if (curr->data != data) return;
+
+      tmp = curr;
+      curr->next->prev = curr->prev;
+      curr->prev->next = curr->next;
     }
-
-    if (curr == tail) return;
-    if (curr->data != data) return;
-
-    Node *tmp = curr;
-    curr->next->prev = curr->prev;
-    curr->prev->next = curr->next;
     delete tmp;
 
     return;
