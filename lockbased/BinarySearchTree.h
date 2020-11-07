@@ -21,7 +21,7 @@ class BinarySearchTree {
   Node* root;
   int sentinel_min = INT_MIN;
   int sentinel_max = INT_MAX;
-  std::recursive_mutex bst_lock = {};
+  std::mutex bst_lock = {};
 
   typedef enum {
     LEFT,
@@ -35,7 +35,7 @@ class BinarySearchTree {
     Node *new_node = new Node();
     new_node->value = value;
     {
-      std::lock_guard<std::recursive_mutex> lock(bst_lock);
+      std::lock_guard<std::mutex> lock(bst_lock);
 
       if (!root) {
 	root = new_node;
@@ -66,7 +66,7 @@ class BinarySearchTree {
   }
 
   void remove(int value) {
-    std::lock_guard<std::recursive_mutex> lock(bst_lock);
+    std::lock_guard<std::mutex> lock(bst_lock);
     Node *curr = root;
     Node *prev = nullptr;
     node_type type = LEFT;
@@ -81,7 +81,7 @@ class BinarySearchTree {
           } else
             root = nullptr; // deleted node is root
         } else if (curr->left && curr->right) { // node to be removed has two children’s
-          curr->value = get_min(curr->right); // find minimum value from right subtree
+          curr->value = get_min_UNSAFE(curr->right); // find minimum value from right subtree
           value = curr->value;
           prev = curr;
           curr = curr->right; // continue from right subtree delete min node
@@ -110,12 +110,26 @@ class BinarySearchTree {
   }
 
   int get_min() {
-    std::lock_guard<std::recursive_mutex> lock(bst_lock);
-    return get_min(root);
+    std::lock_guard<std::mutex> lock(bst_lock);
+    int min = get_min_UNSAFE(root);
+    return min;
   }
 
   int get_min(Node *_root) {
-    std::lock_guard<std::recursive_mutex> lock(bst_lock);
+    std::lock_guard<std::mutex> lock(bst_lock);
+    int min = get_min_UNSAFE(_root);
+    return min;
+  }
+
+  int get_max() {
+    std::lock_guard<std::mutex> lock(bst_lock);
+    int max = get_max_UNSAFE();
+    return max;
+  }
+
+ private:
+
+  int get_min_UNSAFE(Node *_root) {
     auto curr = _root;
     auto min = _root ? _root->value : sentinel_max;
 
@@ -131,8 +145,7 @@ class BinarySearchTree {
     return min;
   }
 
-  int get_max() {
-    std::lock_guard<std::recursive_mutex> lock(bst_lock);
+  int get_max_UNSAFE() {
     auto curr = root;
     auto max = root ? root->value : sentinel_min;
 
@@ -147,6 +160,7 @@ class BinarySearchTree {
     }
     return max;
   }
+  
 };
 
 }  // namespace lockbased
